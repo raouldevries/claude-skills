@@ -10,6 +10,34 @@ description: >
 
 Create a concise handover document for the current session.
 
+## Why Handovers Matter
+
+Claude Code is **stateless between sessions** and has a **finite context window**
+within them. Handovers are the primary mechanism for bridging that gap:
+
+- **Context window is finite, sessions are not.** A complex coding session can
+  fill the context window — when that happens, early decisions, rationale, and
+  plan details get compressed or evicted. A handover crystallizes hours of
+  context into a small document a fresh session can read in one shot.
+
+- **Fresh sessions guess wrong without state.** Without a handover, the next
+  session must re-derive intent from code alone. It may re-implement something
+  that was deliberately removed, or miss that a design decision was already
+  settled. The "Key Decisions" table prevents relitigating resolved questions.
+
+- **State drift causes compounding errors.** The most dangerous mistakes happen
+  when Claude assumes the project is in state A but it's actually in state B —
+  tests were refactored, a dependency swapped, a config moved. Each
+  misconception compounds. The "Current State" and "Files Changed" sections
+  anchor the next session to reality.
+
+- **Progress tracking prevents duplicate and skipped work.** Without explicit
+  tracking, Claude may redo a completed step (wasting tokens and risking
+  regressions) or skip one it thinks is done but isn't.
+
+The cost is ~2 minutes at session end. The payoff is avoiding the 20-minute
+spiral where a fresh session goes confidently in the wrong direction.
+
 ## Steps
 
 1. **Gather context** — Review what was done this session:
