@@ -10,7 +10,7 @@ A collection of reusable [Claude Code](https://docs.anthropic.com/en/docs/claude
 
 ## Installation
 
-Claude Code discovers skills from `~/.claude/skills/`. Symlink a skill directory to make it available:
+Claude Code discovers skills **only** from `~/.claude/skills/` — it won't scan other directories. Since this repo lives outside that path, you need to symlink the skills you want into the discovery directory:
 
 ```bash
 # Link a single skill
@@ -23,6 +23,8 @@ for skill in ~/claude-skills/*/; do
   ln -sf "$skill" ~/.claude/skills/"$name"
 done
 ```
+
+Why symlinks instead of copying? The repo stays a normal git checkout — you can `git pull` to get updates and they take effect immediately without re-copying.
 
 After linking, the skill is available in any Claude Code session. Invoke it by name (e.g. "use the audit-loop skill to implement this step").
 
