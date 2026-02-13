@@ -7,6 +7,7 @@ A collection of reusable [Claude Code](https://docs.anthropic.com/en/docs/claude
 | Skill | Description |
 |-------|-------------|
 | [audit-loop](./audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. |
+| [handover](./handover/) | Create a session handover document summarizing what was done, decisions made, current state, and next steps. |
 
 ## Installation
 
