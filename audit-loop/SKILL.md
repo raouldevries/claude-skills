@@ -2,10 +2,9 @@
 name: audit-loop
 description: >
   Automated implement-audit-fix workflow for a single plan step.
-  Writes tests first, implements code, self-audits the diff, optionally runs
-  Codex CLI audit, fixes findings, commits, updates progress, and writes a
-  handover doc.  Language-agnostic — works with any repo that has a validation
-  command.
+  Writes tests first, implements code, self-audits the diff, runs Codex CLI
+  audit, fixes findings, commits, updates progress, and writes a handover doc.
+  Language-agnostic — works with any repo that has a validation command.
 ---
 
 # Audit-Loop Skill
