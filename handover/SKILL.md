@@ -75,6 +75,27 @@ spiral where a fresh session goes confidently in the wrong direction.
 
 6. **Report to user** — Summarize what's in the handover and where it was saved.
 
+7. **Generate continuation prompt** — At the very end of your response, output a
+   fenced prompt block the user can copy-paste directly into a new session:
+
+   ````
+   **Paste this into your next session:**
+
+   ```
+   Read the handover at <path-to-handover> and continue where the last session
+   left off. The next steps are:
+   - <next step 1>
+   - <next step 2>
+   - ...
+   Check the handover for key decisions, current state, and blockers before
+   starting.
+   ```
+   ````
+
+   Fill in the actual handover path and the concrete next steps from the
+   document. This must be specific enough that the next session can start
+   working immediately without asking clarifying questions.
+
 ## Notes
 
 - This skill is for **standalone handovers** — use the `audit-loop` skill when implementing plan steps (it includes its own handover phase)

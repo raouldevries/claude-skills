@@ -33,3 +33,18 @@
 ## Blockers
 
 - <None / list any blockers that need resolution>
+
+---
+
+## Continue in Next Session
+
+Paste this into a new Claude Code session:
+
+```
+Read the handover at <path-to-this-file> and continue where the last session
+left off. The next steps are:
+- <next step 1>
+- <next step 2>
+Check the handover for key decisions, current state, and blockers before
+starting.
+```
