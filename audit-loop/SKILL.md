@@ -101,21 +101,24 @@ Store the result as **`VALIDATE_CMD`** for all subsequent phases.
 
 ---
 
-## Phase 3 — Codex CLI Audit *(Optional)*
+## Phase 3 — Codex CLI Audit
 
 > This phase requires the [Codex CLI](https://github.com/openai/codex).
-> If Codex is not installed, the phase is **skipped gracefully**.
 
 ### Pre-flight
 
 ```bash
 if ! command -v codex &>/dev/null; then
-  echo "⚠ Codex CLI not found — skipping Phase 3"
-  # Set CODEX_SKIPPED=true for the summary banner
+  echo "✘ Codex CLI not found. Install it: npm install -g @openai/codex"
+  echo "  → https://github.com/openai/codex"
+  # STOP — do not continue without Codex
 fi
 ```
 
-### If Codex is available
+If Codex is not on PATH, **stop and tell the user to install it.** The external
+audit is the core quality gate of this skill.
+
+### Audit
 
 1. Run:
    ```bash
@@ -181,9 +184,8 @@ skill's directory). Include:
 ```
 
 Where `<s>` in the CODEX column is:
-- `✓` — Codex ran and passed
+- `✓` — Codex ran and passed (no findings)
 - `!` — Codex ran, findings were fixed
-- `skip` — Codex was not installed / phase was skipped
 
 ---
 
@@ -196,7 +198,7 @@ Where `<s>` in the CODEX column is:
 | Ambiguous spec / unclear requirement | **Ask** the user before implementing. |
 | No test infrastructure in repo | Skip tests, note in handover. Continue. |
 | No progress tracker found | Skip progress update silently. Continue. |
-| Codex CLI not installed | Skip Phase 3. Mark as `skip` in banner. |
+| Codex CLI not installed | **Stop.** Tell the user to install Codex. |
 
 ---
 
