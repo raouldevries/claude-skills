@@ -8,6 +8,7 @@ A collection of reusable [Claude Code](https://docs.anthropic.com/en/docs/claude
 |-------|-------------|
 | [audit-loop](./audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. |
 | [handover](./handover/) | Create a session handover document summarizing what was done, decisions made, current state, and next steps. |
+| [make-plan](./make-plan/) | Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Each step maps to one audit-loop cycle. |
 
 ## Installation
 
@@ -36,13 +37,15 @@ Each skill is a directory containing:
 ```
 skill-name/
 ├── SKILL.md              # Main skill definition (instructions + workflow)
-└── references/           # Supporting documents the skill reads at runtime
-    ├── severity-rubric.md
-    └── handover-template.md
+├── references/           # Supporting documents the skill reads at runtime
+├── scripts/              # Executable helper scripts (Python/Bash)
+└── assets/               # Templates and files used in skill output
 ```
 
 - **`SKILL.md`** — The entry point. Contains the skill's metadata (name, description) and full workflow instructions. Claude reads this when the skill is invoked.
 - **`references/`** — Supporting documents referenced by the skill. These are read on demand during execution (e.g. the severity rubric is passed to the review sub-agent).
+- **`scripts/`** — Executable code that can be run directly (e.g. `init-plan.py` scaffolds a new plan file).
+- **`assets/`** — Templates and files used within the skill's output (e.g. plan-template.md gets copied and filled in).
 
 ## Customization
 
