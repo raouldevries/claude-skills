@@ -10,6 +10,25 @@ A collection of reusable [Claude Code](https://docs.anthropic.com/en/docs/claude
 | [handover](./handover/) | Create a session handover document summarizing what was done, decisions made, current state, and next steps. |
 | [make-plan](./make-plan/) | Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Each step maps to one audit-loop cycle. |
 
+## How They Work Together
+
+These skills chain into a pipeline for multi-session project execution:
+
+```
+  make-plan                    audit-loop                   handover
+┌────────────┐  Step X.Y    ┌────────────────┐  state    ┌───────────┐
+│ Structure  │──────────────▶│ Test-first     │──────────▶│ Snapshot  │
+│ the work   │  + acceptance │ implement +    │  + done   │ session   │──┐
+│ into steps │  criteria     │ quality gate   │  steps    │ state     │  │
+└────────────┘               └────────────────┘           └───────────┘  │
+      ▲                                                                  │
+      └──────────────────── next session reads ──────────────────────────┘
+```
+
+The **plan file is the shared contract**. make-plan writes steps with acceptance criteria as checkboxes → audit-loop consumes each step (criteria become tests in the test-first phase) → handover records progress and points back to the plan. The next session picks up where the last one left off.
+
+This creates continuity across Claude's ephemeral context windows — no single skill handles multi-session projects, but together they do.
+
 ## Installation
 
 Claude Code discovers skills **only** from `~/.claude/skills/` — it won't scan other directories. Since this repo lives outside that path, you need to symlink the skills you want into the discovery directory:
@@ -30,7 +49,7 @@ Why symlinks instead of copying? The repo stays a normal git checkout — you ca
 
 After linking, the skill is available in any Claude Code session. Invoke it by name (e.g. "use the audit-loop skill to implement this step").
 
-## How Skills Work
+## Skill Structure
 
 Each skill is a directory containing:
 
