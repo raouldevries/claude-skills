@@ -8,17 +8,17 @@ A collection of reusable [Claude Code](https://docs.anthropic.com/en/docs/claude
 
 | Skill | Description |
 |-------|-------------|
-| [audit-loop](./audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. |
-| [handover](./handover/) | Create a session handover document summarizing what was done, decisions made, current state, and next steps. |
-| [make-plan](./make-plan/) | Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Each step maps to one audit-loop cycle. |
+| [audit-loop](./engineering/audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. |
+| [handover](./engineering/handover/) | Create a session handover document summarizing what was done, decisions made, current state, and next steps. |
+| [make-plan](./engineering/make-plan/) | Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Each step maps to one audit-loop cycle. |
 
 ### Marketing Analytics
 
 | Skill | Description |
 |-------|-------------|
-| [metrics-kpis](./metrics-kpis/) | KPI selection, macro/micro conversion measurement, LTV calculation, and brand metrics. Answers "what should I measure and why." |
-| [data-analysis](./data-analysis/) | Systematic 10-step account audits, audience segmentation, root cause investigation, and statistical significance. Answers "how do I investigate." |
-| [digital-strategy](./digital-strategy/) | DMMM framework, Acquisition-Behavior-Outcomes trifecta, multichannel attribution, and core analytics principles. Answers "how do I connect goals to execution." |
+| [metrics-kpis](./marketing/metrics-kpis/) | KPI selection, macro/micro conversion measurement, LTV calculation, and brand metrics. Answers "what should I measure and why." |
+| [data-analysis](./marketing/data-analysis/) | Systematic 10-step account audits, audience segmentation, root cause investigation, and statistical significance. Answers "how do I investigate." |
+| [digital-strategy](./marketing/digital-strategy/) | DMMM framework, Acquisition-Behavior-Outcomes trifecta, multichannel attribution, and core analytics principles. Answers "how do I connect goals to execution." |
 
 These three marketing skills are designed as an interlocking system — see [The Marketing Analytics Stack](#the-marketing-analytics-stack) below for how they compound each other's value.
 
@@ -153,13 +153,14 @@ Claude Code discovers skills **only** from `~/.claude/skills/` — it won't scan
 
 ```bash
 # Link a single skill
-ln -s ~/claude-skills/audit-loop ~/.claude/skills/audit-loop
+ln -s ~/claude-skills/engineering/audit-loop ~/.claude/skills/audit-loop
 
 # Or link all skills at once
-for skill in ~/claude-skills/*/; do
-  name=$(basename "$skill")
-  [ "$name" = ".git" ] && continue
-  ln -sf "$skill" ~/.claude/skills/"$name"
+for dir in ~/claude-skills/engineering ~/claude-skills/marketing; do
+  for skill in "$dir"/*/; do
+    name=$(basename "$skill")
+    ln -sf "$skill" ~/.claude/skills/"$name"
+  done
 done
 ```
 
