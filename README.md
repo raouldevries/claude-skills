@@ -8,7 +8,7 @@ A collection of reusable [Claude Code](https://docs.anthropic.com/en/docs/claude
 
 | Skill | Description |
 |-------|-------------|
-| [audit-loop](./engineering/audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. |
+| [audit-loop](./engineering/audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. Supports project-specific Codex audit prompts via `.claude/codex-audit-prompt.md`. |
 | [handover](./engineering/handover/) | Create a session handover document summarizing what was done, decisions made, current state, and next steps. |
 | [make-plan](./engineering/make-plan/) | Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Each step maps to one audit-loop cycle. |
 
@@ -196,6 +196,20 @@ Skills are designed to defer to your project's `CLAUDE.md` for project-specific 
 - Reads your `CLAUDE.md`'s domain-specific review criteria
 
 This means you can customize behaviour **without forking** — just add the relevant instructions to your project's `CLAUDE.md`.
+
+### Project-specific Codex audit prompt
+
+The audit-loop ships with a generic Codex review prompt (`references/codex-audit-prompt.md`) that covers universal concerns: correctness, security, error handling, concurrency, and data integrity. For domain-specific projects, you can override this by placing a `.claude/codex-audit-prompt.md` in your repo root:
+
+```
+your-repo/
+├── .claude/
+│   └── codex-audit-prompt.md   ← domain-specific (used if present)
+├── src/
+└── ...
+```
+
+The audit-loop resolves the prompt at runtime: project-level first, generic fallback if not found. Use the generic prompt as a starting template — keep the severity definitions and output format, replace the focus areas with your domain's concerns.
 
 ### Forking
 
