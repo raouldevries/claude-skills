@@ -117,12 +117,30 @@ fi
 If Codex is not on PATH, **stop and tell the user to install it.** The external
 audit is the core quality gate of this skill.
 
+### Prompt Resolution
+
+Resolve the audit prompt before running Codex. A project-level prompt provides
+domain-specific focus areas; the generic prompt covers universal concerns.
+
+```bash
+PROMPT="${PWD}/.claude/codex-audit-prompt.md"
+[ ! -f "$PROMPT" ] && PROMPT="<skill-dir>/references/codex-audit-prompt.md"
+```
+
+Where `<skill-dir>` is the directory containing this SKILL.md.
+
+**To customize for a specific project:** add `.claude/codex-audit-prompt.md` to
+the repo root. Use `references/codex-audit-prompt.md` as a starting template
+and replace the focus areas with domain-specific concerns.
+
 ### Audit
 
 1. Run:
    ```bash
-   codex exec review --uncommitted 2>&1 | tee /tmp/codex-audit-output.md
+   codex review --uncommitted - < "$PROMPT" 2>&1 | tee /tmp/codex-audit-output.md
    ```
+   The `-` flag tells Codex to read the review prompt from stdin. Codex outputs
+   findings in P0/P1/P2 format matching Phase 2.
 
 2. **Triage** each finding:
    | Action       | Criteria |
@@ -206,4 +224,6 @@ Where `<s>` in the CODEX column is:
 | Resource | Path |
 |----------|------|
 | Severity rubric | `references/severity-rubric.md` |
+| Codex audit prompt (generic) | `references/codex-audit-prompt.md` |
 | Handover template | `references/handover-template.md` |
+| Project-specific prompt (optional) | `.claude/codex-audit-prompt.md` in repo root |
