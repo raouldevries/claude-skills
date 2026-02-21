@@ -32,6 +32,24 @@ Store the result as **`VALIDATE_CMD`** for all subsequent phases.
 
 ---
 
+## Activation (optional)
+
+The skill includes hook scripts for state tracking and cancellation support.
+Before starting Phase 1, create the state file:
+
+```bash
+<skill-dir>/hooks/update-state.sh init "<step_name>"
+```
+
+This enables:
+- Stop-hook enforcement (prevents skipping phases)
+- Cancellation via `<skill-dir>/hooks/update-state.sh cancel`
+- State tracking between phases
+
+Note: Ensure `.claude/audit-loop.local.*` is excluded from version control.
+
+---
+
 ## Phase 1 — Test-First Implementation
 
 ### Steps
@@ -219,6 +237,18 @@ Where `<s>` in the CODEX column is:
 
 ---
 
+## Cancellation
+
+To cancel an active audit loop:
+
+```bash
+<skill-dir>/hooks/update-state.sh cancel
+```
+
+This sets the cancelled flag, reports the current phase/step, and cleans up the state file.
+
+---
+
 ## Resource References
 
 | Resource | Path |
@@ -226,4 +256,6 @@ Where `<s>` in the CODEX column is:
 | Severity rubric | `references/severity-rubric.md` |
 | Codex audit prompt (generic) | `references/codex-audit-prompt.md` |
 | Handover template | `references/handover-template.md` |
+| Hook: state tracking | `hooks/update-state.sh` |
+| Hook: stop enforcement | `hooks/stop-hook.sh` |
 | Project-specific prompt (optional) | `.claude/codex-audit-prompt.md` in repo root |
