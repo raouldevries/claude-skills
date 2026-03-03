@@ -1,261 +1,299 @@
 ---
 name: audit-loop
-description: >
-  Automated implement-audit-fix workflow for a single plan step.
-  Writes tests first, implements code, self-audits the diff, runs Codex CLI
-  audit, fixes findings, commits, updates progress, and writes a handover doc.
-  Language-agnostic — works with any repo that has a validation command.
+description: Use when implementing a plan step end-to-end with built-in quality gates and external audit verification.
 ---
 
-# Audit-Loop Skill
+# Audit Loop
 
-> Implements one plan step end-to-end with built-in quality gates.
+Automate the full implement-audit-fix cycle for one plan step.
 
----
+## Inputs
 
-## Project Detection (run once at skill start)
+Before starting, confirm you have:
+- A plan file with the step spec (user provides path or describes the step)
+- The resolved progress file open for tracking (default: `memory-bank/progress.md`)
+- The resolved validation command passing on the current codebase (default: `make validate`)
 
-Detect the project's validation command using the first match:
+## Discipline
 
-1. **CLAUDE.md** — look for an explicit validate / check / lint command
-2. **Makefile / justfile** — `make validate` or `just validate` (fall back to `make check` / `just check`)
-3. **package.json** — `npm test` (or `yarn test` / `pnpm test` based on lockfile)
-4. **Cargo.toml** — `cargo clippy --all-targets && cargo test`
-5. **go.mod** — `go vet ./... && go test ./...`
-6. **pyproject.toml / setup.cfg** — `python -m pytest` (add `mypy .` / `ruff check .` if configured)
-7. **build.gradle / pom.xml** — `./gradlew check` / `mvn verify`
-8. **None found** — ask the user: *"No validation command detected. What command should I run?"*
+| Rationalization | Reality |
+|---|---|
+| "This change is too small to need tests" | Small changes break things. Write the test — it takes 30 seconds. |
+| "The test would just verify the same code" | That's what tests do. Write it anyway. |
+| "I'll fix the Codex finding later" | Classify it as FIX, DOCUMENT, or DISMISS. "Later" means never. |
+| "The spec is clear enough, no need to re-read" | Re-read the spec. Drift from spec is the #1 audit finding. |
+| "Validation passed, so the implementation is correct" | Passing validation means no syntax/type errors. It doesn't mean the code is correct. Run the acceptance criteria tests. |
 
-Store the result as **`VALIDATE_CMD`** for all subsequent phases.
+## Activation
 
-**Monorepo note:** If the current working directory is a package inside a monorepo, prefer the package-level config first, then fall back to root-level.
-
----
-
-## Activation (optional)
-
-The skill includes hook scripts for state tracking and cancellation support.
-Before starting Phase 1, create the state file:
+Before starting Phase 1, create the state file for stop hook enforcement. Replace `<step_name>` with the actual plan step name:
 
 ```bash
-<skill-dir>/hooks/update-state.sh init "<step_name>"
+~/.claude/skills/audit-loop/hooks/update-state.sh init "<step_name>"
 ```
 
-This enables:
-- Stop-hook enforcement (prevents skipping phases)
-- Cancellation via `<skill-dir>/hooks/update-state.sh cancel`
-- State tracking between phases
+To use gate mode instead of the default TDD mode:
 
-Note: Ensure `.claude/audit-loop.local.*` is excluded from version control.
-
----
-
-## Phase 1 — Test-First Implementation
-
-### Steps
-
-1. **Read context**
-   - Read the plan file / task description.
-   - Auto-detect a progress tracker: check CLAUDE.md for a reference → look for
-     common paths (`memory-bank/progress.md`, `PROGRESS.md`, `TODO.md`) → skip
-     silently if none found.
-
-2. **Write tests first** *(conditional)*
-   - If the repo has test infrastructure (test runner configured, existing test
-     files), write failing tests that cover the planned behaviour (red phase).
-   - If the repo has **no** test infrastructure, skip and note in the handover:
-     *"Tests skipped — no test framework detected."*
-
-3. **Implement**
-   - Follow the repo's **CLAUDE.md** or linter config for style.
-   - General principles when no style guide exists:
-     - Explicit types / type annotations where the language supports them
-     - Small, focused functions
-     - Early returns over deep nesting
-     - Files under ~500 LOC
-   - Make tests pass (green phase).
-
-4. **Validate**
-   - Run `VALIDATE_CMD`.
-   - On failure → fix → re-run (max **3 rounds**).
-   - After 3 failures → **stop and report** the remaining errors to the user.
-
-### Progress banner after Phase 1
-
-```
-┌─────────────────────────────────────────────┐
-│  AUDIT-LOOP  ·  Phase 1 complete            │
-│  Tests: <pass_count>  ·  Validate: ✓        │
-└─────────────────────────────────────────────┘
+```bash
+~/.claude/skills/audit-loop/hooks/update-state.sh init "<step_name>" --mode gate
 ```
 
----
+**Important**: Create `.claude/audit-loop.config.yaml` (see Configuration below) *before* running `init` — config values are read once at init time and stored in the state file.
+
+Note: Ensure `.claude/audit-loop.local.*` is excluded from version control (via `.git/info/exclude` or `.gitignore`).
+
+## Configuration
+
+Project-specific settings are read from `.claude/audit-loop.config.yaml` at the project root (resolved via `git rev-parse --show-toplevel`). All fields are optional — omitted fields use defaults.
+
+```yaml
+# .claude/audit-loop.config.yaml
+validate_command: "ruff check src/ && pytest"   # default: "make validate"
+progress_file: docs/progress.md                  # default: "memory-bank/progress.md"
+codex_prompt: .claude/codex-audit-prompt.md      # default: "" (use fallback chain)
+```
+
+**Resolution order** — values are resolved at `init` and stored in the state JSON:
+1. `.claude/audit-loop.config.yaml` in the project root (if present)
+2. Defaults: `make validate`, `memory-bank/progress.md`, `""` (empty)
+
+### Mode Selection
+
+| Mode | Flag | When to use |
+|------|------|-------------|
+| **TDD** (default) | `--mode tdd` | Greenfield steps where writing tests first makes sense |
+| **Gate** | `--mode gate` | Existing code or steps where tests already exist — verify coverage, validate, proceed |
+
+### Quick Setup for New Repos
+
+```yaml
+# Python project
+validate_command: "ruff check src/ && pytest"
+progress_file: docs/progress.md
+
+# Node/TypeScript project
+validate_command: "npm run lint && npm test"
+progress_file: docs/progress.md
+
+# Go project
+validate_command: "go vet ./... && go test ./..."
+progress_file: docs/progress.md
+```
+
+## Pre-Cycle Context Check
+
+Before starting a new audit-loop cycle, assess how many cycles have already completed in this session. Count the number of prior summary banners (`AUDIT LOOP ─`) or committed steps in this conversation.
+
+| Cycle count | Action |
+|-------------|--------|
+| 1 (first cycle) | Proceed normally |
+| 2–3 | Proceed, but monitor for signs of degraded capability (missed findings, incomplete reasoning, summarizing instead of reading) |
+| 4+ | Run `/handover` instead of starting a new cycle. Context is likely near capacity. |
+
+**Advisory note**: This check uses cycle count as a deterministic proxy — the AI cannot precisely measure its own context usage. The cycle 4+ threshold is conservative and based on empirical session data (~5 cycles was the observed maximum before degradation).
+
+## Phase 1 — Implementation
+
+1. **Read context** — Read the plan file and the resolved progress file to understand the step spec, dependencies, and what's already done.
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh step 2`
+
+**TDD mode** (default):
+
+2. **Write tests first** — Write unit tests that encode the step's acceptance criteria. Tests should fail initially (red phase).
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh step 3`
+
+3. **Implement** — Write production code following CLAUDE.md code style:
+   - Type hints on all functions (mypy strict)
+   - Dataclasses for data structures
+   - Async/await for I/O operations
+   - Early returns over nested conditions
+   - Files under ~500 LOC
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh step 4`
+
+**Gate mode**:
+
+2. **Verify test coverage** — Check that tests exist for the step's acceptance criteria. Add missing tests for any uncovered criteria.
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh step 3`
+
+3. **Implement or modify** — Write or update production code following CLAUDE.md code style.
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh step 4`
+
+**Both modes**:
+
+4. **Validate** — Run the resolved validation command. Fix failures.
+   - Max 3 fix-validate attempts. If still failing after 3 rounds, STOP and report to user with the remaining errors.
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh phase 2 self-audit 5`
 
 ## Phase 2 — Self-Audit
 
-1. **Spawn a review sub-agent** with this prompt context:
-   - The uncommitted diff (`git diff` + `git diff --cached`)
-   - The severity rubric at **`references/severity-rubric.md`** (relative to this skill's directory)
-   - The repo's **CLAUDE.md** (if present) for domain-specific rules
+5. **Spawn review sub-agent** — Use the Task tool to launch a sub-agent that:
+   - Reads the uncommitted diff (`git diff` + `git diff --cached`)
+   - Reviews it against the severity rubric at `~/.claude/skills/audit-loop/references/severity-rubric.md`
+   - Reviews it against the scope priorities at `~/.claude/skills/audit-loop/references/review-scope.md`
+   - Returns only P0/P1/P2 findings in the output contract format:
+     ```
+     [P0|P1|P2] <short title>
+     - File: <path:line>
+     - Risk: <impact>
+     - Failure path: <step-by-step trigger>
+     - Concrete fix: <specific code change>
+     - Validation: <test or check that proves fix>
+     ```
+   - Returns `No P0/P1/P2 findings.` if clean
 
-2. The sub-agent reviews the diff and returns **only P0 / P1 / P2 findings** in
-   this format:
-
-   ```
-   [P0|P1|P2] <short title>
-   - File: <path:line>
-   - Risk: <impact description>
-   - Failure path: <step-by-step trigger>
-   - Concrete fix: <specific code or design change>
-   - Validation: <test or check that proves the fix>
-   ```
-
-3. **Fix all P0 and P1 findings.** Add regression tests for each fix.
-
-4. **Document P2 findings** in the handover (do not block on them).
-
-5. Re-run `VALIDATE_CMD` after fixes.
-
----
+6. **Fix findings** — Fix all P0 and P1 findings. Add regression tests for each fix. Re-run the resolved validation command.
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh phase 3 codex-audit 7`
 
 ## Phase 3 — Codex CLI Audit
 
-> This phase requires the [Codex CLI](https://github.com/openai/codex).
-
-### Pre-flight
-
-```bash
-if ! command -v codex &>/dev/null; then
-  echo "✘ Codex CLI not found. Install it: npm install -g @openai/codex"
-  echo "  → https://github.com/openai/codex"
-  # STOP — do not continue without Codex
-fi
-```
-
-If Codex is not on PATH, **stop and tell the user to install it.** The external
-audit is the core quality gate of this skill.
-
-### Prompt Resolution
-
-Resolve the audit prompt before running Codex. A project-level prompt provides
-domain-specific focus areas; the generic prompt covers universal concerns.
-
-```bash
-PROMPT="${PWD}/.claude/codex-audit-prompt.md"
-[ ! -f "$PROMPT" ] && PROMPT="<skill-dir>/references/codex-audit-prompt.md"
-```
-
-Where `<skill-dir>` is the directory containing this SKILL.md.
-
-**To customize for a specific project:** add `.claude/codex-audit-prompt.md` to
-the repo root. Use `references/codex-audit-prompt.md` as a starting template
-and replace the focus areas with domain-specific concerns.
-
-### Audit
-
-1. Run:
+7. **Run Codex audit** — Resolve the prompt using the fallback chain, then run via `codex exec`:
    ```bash
-   codex review --uncommitted - < "$PROMPT" 2>&1 | tee /tmp/codex-audit-output.md
+   ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+   # Fallback chain: 1) codex_prompt from state, 2) project-level, 3) user-scope generic
+   STATE_PROMPT=$(jq -r '.codex_prompt // ""' "${ROOT}/.claude/audit-loop.local.json" 2>/dev/null)
+   if [ -n "$STATE_PROMPT" ] && [ -f "${ROOT}/${STATE_PROMPT}" ]; then
+     PROMPT="${ROOT}/${STATE_PROMPT}"
+   elif [ -f "${ROOT}/.claude/codex-audit-prompt.md" ]; then
+     PROMPT="${ROOT}/.claude/codex-audit-prompt.md"
+   else
+     PROMPT="$HOME/.claude/skills/audit-loop/references/codex-audit-prompt.md"
+   fi
+   codex exec --sandbox read-only - < "$PROMPT" 2>&1 | tee /tmp/codex-audit-output.md
    ```
-   The `-` flag tells Codex to read the review prompt from stdin. Codex outputs
-   findings in P0/P1/P2 format matching Phase 2.
+   **Why `codex exec` instead of `codex review`**: `codex review --uncommitted` uses a built-in review prompt that cannot be overridden — `--uncommitted` and `[PROMPT]` are mutually exclusive. `codex exec` with `-` reads our custom audit prompt from stdin as the instruction. The `--sandbox read-only` flag gives Codex filesystem access to read the repo and run `git diff` itself.
 
-2. **Triage** each finding:
-   | Action       | Criteria |
-   |-------------|----------|
-   | **FIX**      | P0 or P1 per the severity rubric |
-   | **DOCUMENT** | P2 — add to handover |
-   | **DISMISS**  | False positive or already addressed — note reason |
+   **Prompt resolution order**: (1) `codex_prompt` from config (resolved relative to project root), (2) `${ROOT}/.claude/codex-audit-prompt.md`, (3) `$HOME/.claude/skills/audit-loop/references/codex-audit-prompt.md`. Wait for completion (this may take 1-2 minutes).
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh step 8`
 
-3. Fix P0/P1 findings, re-run `VALIDATE_CMD`.
+8. **Triage findings** — Read `/tmp/codex-audit-output.md` and classify each finding:
+   - **FIX** — P0/P1 findings: fix immediately with regression tests
+   - **DOCUMENT** — P2 findings or valid concerns that don't need immediate fixing: note in handover doc
+   - **DISMISS** — False positives, style nits, or below-threshold: ignore
 
-4. If any **P0 was fixed**, re-run the Codex audit (max **2 rounds** total).
-   After 2 rounds with remaining P0s → **stop and report** to the user.
+   **Skip rule**: If zero FIX findings after triage, skip steps 9-10 and go directly to Phase 4:
+   ```bash
+   ~/.claude/skills/audit-loop/hooks/update-state.sh phase 4 commit-document 11
+   ```
+   - **State** (if FIX findings exist): `~/.claude/skills/audit-loop/hooks/update-state.sh step 9`
 
----
+9. **Fix and re-validate** (only if FIX findings exist from step 8) — Fix all FIX-classified findings. Add regression tests. Run the resolved validation command.
+   - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh step 10`
+
+10. **Re-audit if needed** (only if FIX findings exist from step 8) — If any P0 findings were fixed in step 9:
+    - Run Codex audit once more (same prompt resolution as step 7):
+      ```bash
+      ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+      STATE_PROMPT=$(jq -r '.codex_prompt // ""' "${ROOT}/.claude/audit-loop.local.json" 2>/dev/null)
+      if [ -n "$STATE_PROMPT" ] && [ -f "${ROOT}/${STATE_PROMPT}" ]; then
+        PROMPT="${ROOT}/${STATE_PROMPT}"
+      elif [ -f "${ROOT}/.claude/codex-audit-prompt.md" ]; then
+        PROMPT="${ROOT}/.claude/codex-audit-prompt.md"
+      else
+        PROMPT="$HOME/.claude/skills/audit-loop/references/codex-audit-prompt.md"
+      fi
+      codex exec --sandbox read-only - < "$PROMPT" 2>&1 | tee /tmp/codex-audit-round2.md
+      ```
+    - If P0s persist after round 2: **STOP** and report to user with full findings
+    - If clean or only P2s remain: proceed to Phase 4
+    - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh phase 4 commit-document 11`
 
 ## Phase 4 — Commit & Document
 
-### 4a. Commit
+11. **Git commit** — Stage specific files (no `git add -A`). Use conventional commit format:
+    ```
+    feat|fix|refactor|test: <description>
 
-- Stage changed files and commit using **Conventional Commits** format:
-  ```
-  feat(<scope>): <description>
+    <body with what changed and why>
 
-  Co-Authored-By: Claude <noreply@anthropic.com>
-  ```
-- Scope = affected module or area. Use `fix`, `refactor`, `test`, etc. as
-  appropriate.
+    Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+    ```
 
-### 4b. Update progress tracker *(if detected in Phase 1)*
+12. **Update progress** — Update the resolved progress file with:
+    - Checkbox entry for the completed step
+    - Test count from validation output
+    - Audit results table (if findings were found and fixed):
+      ```
+      | # | Finding | Severity | Fix |
+      |---|---------|----------|-----|
+      | 1 | <title> | P0/P1/P2 | <what was done> |
+      ```
+    - Date stamp
 
-- Mark the current step complete (checkbox, status update, etc.)
-- Append: test count, audit results summary, date.
+13. **Write handover doc** (conditional) — Write a full handover doc only on **session-final cycle** (last step before ending) or **escalation** (stuck/failure). When continuing to the next plan step in the same session, skip the full handover — the progress update from step 12 is sufficient.
 
-### 4c. Write handover document
-
-Use the template at **`references/handover-template.md`** (relative to this
-skill's directory). Include:
-- Implementation summary and files changed
-- All audit findings (fixed and documented)
-- Key design decisions
-- Validation state
-
----
+    When writing the full handover, use the template at `~/.claude/skills/audit-loop/references/handover-template.md`. Include:
+    - What was implemented (files, key decisions)
+    - Audit findings and fixes (self-audit + Codex)
+    - Validation state (test count, linter, type checker)
+    - Files changed (tracked and untracked)
+    - **State**: `~/.claude/skills/audit-loop/hooks/update-state.sh phase 5 summary-banner 14`
 
 ## Phase 5 — Summary Banner
 
+14. **Print workflow banner** — After completing all phases (or on escalation/failure), output an ASCII workflow summary. Replace `<step name>` with the actual plan step name, mark each stage with its outcome, and fill in the stats line with real values from the session.
+
+**On success:**
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  AUDIT-LOOP COMPLETE                                         │
-│                                                              │
-│  IMPLEMENT ── SELF-AUDIT ── CODEX ── COMMIT ── HANDOVER     │
-│      ✓            ✓         <s>       ✓          ✓          │
-│                                                              │
-│  Tests: <N>  ·  P0 fixed: <n>  ·  P1 fixed: <n>             │
-│  P2 documented: <n>  ·  Dismissed: <n>                       │
-│  Commit: <short-sha> <message>                               │
-└──────────────────────────────────────────────────────────────┘
+══════════════════════════════════════════════════════════════════════════════
+  AUDIT LOOP ─ <step name>
+══════════════════════════════════════════════════════════════════════════════
+
+  READ ──▶ TESTS ──▶ IMPLEMENT ──▶ VALIDATE ──▶ SELF-AUDIT ──▶ CODEX ──▶ COMMIT
+   ✓        ✓          ✓             ✓            <result>      <result>   done
+
+  Tests: <n> pass  |  Findings: <n> fixed  |  <commit message>
+══════════════════════════════════════════════════════════════════════════════
 ```
 
-Where `<s>` in the CODEX column is:
-- `✓` — Codex ran and passed (no findings)
-- `!` — Codex ran, findings were fixed
+**On failure/escalation:**
+```
+══════════════════════════════════════════════════════════════════════════════
+  AUDIT LOOP ─ <step name>
+══════════════════════════════════════════════════════════════════════════════
 
----
+  READ ──▶ TESTS ──▶ IMPLEMENT ──▶ VALIDATE ──▶ SELF-AUDIT ──▶ CODEX ──▶ COMMIT
+   ✓        ✓          ✓             ✗ STUCK      ·             ·         ·
+
+  BLOCKED: <reason>  |  See output above
+══════════════════════════════════════════════════════════════════════════════
+```
+
+Mark completed stages with `✓`, the failed stage with `✗ <reason>`, unreached stages with `·`, and skipped stages (e.g., steps 9-10 when no FIX findings) with `–`.
+   - **Cleanup**: `~/.claude/skills/audit-loop/hooks/update-state.sh cleanup`
 
 ## Escalation Rules
 
-| Situation | Action |
-|-----------|--------|
-| `VALIDATE_CMD` fails 3× in Phase 1 | **Stop.** Report errors to the user. |
-| P0 persists after 2 Codex audit rounds | **Stop.** Report the finding to the user. |
-| Ambiguous spec / unclear requirement | **Ask** the user before implementing. |
-| No test infrastructure in repo | Skip tests, note in handover. Continue. |
-| No progress tracker found | Skip progress update silently. Continue. |
-| Codex CLI not installed | **Stop.** Tell the user to install Codex. |
+- **Phase 1 stuck**: After 3 failed validation rounds, stop and report errors to user
+- **Phase 3 P0 persists**: After 2 Codex audit rounds with P0s, stop and report full findings to user
+- **Ambiguous spec**: If the step spec is unclear, ask the user before implementing (don't guess)
 
----
+## Completion Verification
+
+Before marking ANY phase or step complete:
+1. Run the verification command (the resolved validation command, Codex audit)
+2. Read the FULL output — do not summarize or skip
+3. Confirm the output matches expectations
+
+Forbidden claims without evidence:
+- "should work now" — show that it works
+- "looks correct" — prove it's correct with test output
+- "probably fixed" — run the test that was failing
+- "tests pass" — paste the test output
+
+## Resources
+
+- Severity rubric: `~/.claude/skills/audit-loop/references/severity-rubric.md`
+- Review scope: `~/.claude/skills/audit-loop/references/review-scope.md`
+- Codex prompt: `~/.claude/skills/audit-loop/references/codex-audit-prompt.md`
+- Handover template: `~/.claude/skills/audit-loop/references/handover-template.md`
+- Progress tracker: the resolved progress file (default: `memory-bank/progress.md`)
 
 ## Cancellation
 
-To cancel an active audit loop:
+To cancel an active audit loop, the user says "cancel the audit loop" or similar:
 
 ```bash
-<skill-dir>/hooks/update-state.sh cancel
+~/.claude/skills/audit-loop/hooks/update-state.sh cancel
 ```
 
-This sets the cancelled flag, reports the current phase/step, and cleans up the state file.
-
----
-
-## Resource References
-
-| Resource | Path |
-|----------|------|
-| Severity rubric | `references/severity-rubric.md` |
-| Codex audit prompt (generic) | `references/codex-audit-prompt.md` |
-| Handover template | `references/handover-template.md` |
-| Hook: state tracking | `hooks/update-state.sh` |
-| Hook: stop enforcement | `hooks/stop-hook.sh` |
-| Project-specific prompt (optional) | `.claude/codex-audit-prompt.md` in repo root |
+This sets the cancelled flag (race safety), reports the current phase/step, and deletes the state file.

@@ -8,6 +8,7 @@
 #   update-state.sh round <round_num>       # transition to new round, reset phase to "self-audit"
 #   update-state.sh phase <phase_name>      # transition phase within current round
 #   update-state.sh converge                # mark plan as converged
+#   update-state.sh claim <session_id>       # register owning session (from stop hook block reason)
 #   update-state.sh cancel                  # cancel loop and delete state file
 #   update-state.sh cleanup                 # delete state file silently
 #
@@ -33,7 +34,7 @@ case "$1" in
     fi
     mkdir -p "${ROOT}/.claude"
     jq -n --arg name "$PLAN_NAME" --arg ts "$TS" \
-      '{active:true, round:1, phase:"draft", converged:false, total_blocks:0, plan_name:$name, started_at:$ts, last_transition:$ts, cancelled:false}' \
+      '{active:true, round:1, phase:"draft", converged:false, total_blocks:0, plan_name:$name, session_id:"", last_blocked_session_id:"", started_at:$ts, last_transition:$ts, cancelled:false}' \
       > "$TEMP" && mv "$TEMP" "$STATE_FILE" || { rm -f "$TEMP"; exit 1; }
     ;;
   round)
@@ -46,6 +47,10 @@ case "$1" in
     CURRENT=$(jq -r '.round // 0' "$STATE_FILE" 2>/dev/null)
     if [ "$ROUND" -le "$CURRENT" ] 2>/dev/null; then
       echo "Error: round $ROUND is not greater than current round $CURRENT." >&2
+      exit 1
+    fi
+    if [ "$ROUND" -gt 2 ] 2>/dev/null; then
+      echo "Error: max round is 2." >&2
       exit 1
     fi
     jq --arg ts "$TS" --argjson round "$ROUND" \
@@ -81,11 +86,27 @@ case "$1" in
     jq -r '"Cancelled plan loop \"\(.plan_name)\" at round \(.round), phase \(.phase)"' "$STATE_FILE" 2>/dev/null
     rm -f "$STATE_FILE"
     ;;
+  claim)
+    [ -f "$STATE_FILE" ] || { echo "Error: no active plan loop to claim." >&2; exit 1; }
+    SID="$2"
+    if [ -z "$SID" ]; then
+      echo "Error: claim subcommand requires a session_id argument." >&2
+      exit 1
+    fi
+    CURRENT_SID=$(jq -r '.session_id // ""' "$STATE_FILE" 2>/dev/null)
+    if [ -n "$CURRENT_SID" ] && [ "$CURRENT_SID" != "$SID" ]; then
+      echo "Error: plan loop already claimed by session ${CURRENT_SID}." >&2
+      exit 1
+    fi
+    jq --arg sid "$SID" '.session_id = $sid' \
+      "$STATE_FILE" > "$TEMP" && mv "$TEMP" "$STATE_FILE" || { rm -f "$TEMP"; exit 1; }
+    echo "Session ${SID} claimed plan loop \"$(jq -r '.plan_name' "$STATE_FILE" 2>/dev/null)\"."
+    ;;
   cleanup)
     rm -f "$STATE_FILE"
     ;;
   *)
-    echo "Error: unknown subcommand '$1'. Valid: init, round, phase, converge, cancel, cleanup." >&2
+    echo "Error: unknown subcommand '$1'. Valid: init, round, phase, converge, cancel, claim, cleanup." >&2
     exit 1
     ;;
 esac

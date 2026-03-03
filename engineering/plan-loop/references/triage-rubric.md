@@ -15,8 +15,6 @@ Examples: vague acceptance criteria requiring implementer guesswork, step orderi
 **P2** — Improvement that would make the plan clearer or more efficient but isn't blocking.
 Examples: steps that could be parallelized, acceptance criteria that could be more specific, missing but inferrable file paths, minor scope gaps.
 
-**Structural vs minor P0** (used at round 7+ threshold): A P0 is **structural** if fixing it requires redesigning a step's logic, ordering, or dependencies. A P0 is **minor** if only a reference detail (file path, function name, import) is wrong but the step's logic and sequencing remain valid.
-
 ## Verdicts
 
 ### FIX
@@ -71,11 +69,9 @@ Not all findings are worth fixing in every round. As the plan matures through ro
 
 | Rounds | Fix threshold | Rationale |
 |--------|--------------|-----------|
-| 1–3 | P0 + P1 | Early rounds: fix structural flaws and ambiguity |
-| 4–6 | P0 only | Mid rounds: plan is mostly sound, only fix implementation-blocking defects |
-| 7+ | Structural P0 only | Late rounds: only fix P0s that require redesigning step logic/ordering/dependencies (see definition above) |
+| 1–2 | P0 + P1 | Both rounds: fix structural flaws and ambiguity |
 
-The round number controls the threshold regardless of when a finding first appeared. A P1 that surfaces for the first time in round 5 is still below threshold and is accepted risk.
+Both rounds use the same threshold. Round cap at 2 prevents diminishing-returns cycles.
 
 **Applying the threshold:**
 - Triage ALL findings regardless of round (every finding gets a verdict)
@@ -83,7 +79,7 @@ The round number controls the threshold regardless of when a finding first appea
 - Findings below threshold: keep the FIX verdict in the log but do NOT revise the plan for them
 - Below-threshold findings are accepted risk for this plan iteration and are included in the convergence summary for the user to review post-convergence
 
-**Escalation trigger:** If the same P0 finding survives three or more consecutive rounds of fixes, do not continue the loop. Surface the finding to the user per the escalation rules in SKILL.md.
+**Escalation trigger:** If a P0 finding persists after both rounds of triage, escalate to the user per the escalation rules in SKILL.md.
 
 ## Convergence Criteria
 

@@ -10,6 +10,8 @@ Populate the `{{placeholders}}` before passing.
 
 You are auditing an implementation plan against the actual codebase. Your goal is to find defects that would cause implementation failure, wasted effort, or ambiguity.
 
+**CRITICAL: You are a reviewer, not an implementer. Do NOT write, create, or edit any source code files. Do NOT follow the plan's implementation steps. Your ONLY output is a list of findings (or "No findings"). Read codebase files to verify facts — never modify them.**
+
 ### Plan file
 
 `{{PLAN_FILE_PATH}}`
@@ -24,17 +26,7 @@ Read each of these files and verify the plan's references against them:
 
 ### Prior round context
 
-{{#if ROUND_GT_1}}
-Round: {{ROUND_NUMBER}}
-
-**Prior round fixes to verify** — confirm each fix was correctly applied to the plan:
-{{PRIOR_FIXES}}
-
-**Known accepted risk** (below threshold, do NOT re-report):
-{{ACCEPTED_RISK}}
-{{else}}
 Round: 1 (first audit — no prior fixes to verify)
-{{/if}}
 
 ### Severity definitions
 
