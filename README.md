@@ -38,9 +38,15 @@ These skills chain into a pipeline for multi-session project execution:
       └──────────────────────── next session reads ────────────────────────────────────────┘
 ```
 
-The **plan file is the shared contract** and flows through four stages. make-plan writes steps with acceptance criteria → plan-loop validates the plan against the actual codebase (self-audit + Codex audit, max 2 rounds) → the converged plan has verified file paths, API references, and dependencies → audit-loop consumes each step (criteria become tests in the test-first phase) → handover records progress and points back to the plan. The next session picks up where the last one left off.
+The **plan file is the shared contract**. It flows through five stages:
 
-The plan-loop's output — a **final plan with codebase-verified references** — is what makes audit-loop effective. Without validation, audit-loop wastes cycles on steps that reference wrong APIs, missing files, or impossible dependencies. With it, each audit-loop cycle starts from a sound foundation.
+1. **make-plan** drafts the plan — phased steps, acceptance criteria, file paths, dependencies
+2. **plan-loop** validates it against the actual codebase (self-audit + Codex audit, max 2 rounds), fixing wrong API references, missing files, and impossible dependencies
+3. The **final plan** emerges with codebase-verified references — this is the bridge between planning and implementation
+4. **audit-loop** consumes each step from the final plan (acceptance criteria become tests in the test-first phase, file paths are already confirmed)
+5. **handover** records progress and points back to the plan — the next session picks up where the last one left off
+
+The final plan stage is what makes audit-loop effective. Without validation, audit-loop wastes cycles on steps that reference wrong APIs, missing files, or impossible dependencies. With it, each cycle starts from a sound foundation.
 
 ## The Marketing Analytics Stack
 
