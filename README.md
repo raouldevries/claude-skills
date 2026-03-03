@@ -28,19 +28,19 @@ These three marketing skills are designed as an interlocking system — see [The
 These skills chain into a pipeline for multi-session project execution:
 
 ```
-  make-plan          plan-loop            audit-loop            handover
-┌────────────┐    ┌─────────────┐      ┌────────────────┐    ┌───────────┐
-│ Structure  │───▶│ Validate    │─────▶│ Test-first     │───▶│ Snapshot  │──┐
-│ the work   │    │ plan vs     │      │ implement +    │    │ session   │  │
-│ into steps │    │ codebase    │      │ quality gate   │    │ state     │  │
-└────────────┘    │ (2 rounds)  │      └────────────────┘    └───────────┘  │
-      ▲           └─────────────┘                                           │
-      └──────────────────── next session reads ────────────────────────────┘
+  make-plan          plan-loop          final plan         audit-loop            handover
+┌────────────┐    ┌─────────────┐    ┌─────────────┐    ┌────────────────┐    ┌───────────┐
+│ Structure  │───▶│ Validate    │───▶│ Converged   │───▶│ Test-first     │───▶│ Snapshot  │──┐
+│ the work   │    │ plan vs     │    │ plan with   │    │ implement +    │    │ session   │  │
+│ into steps │    │ codebase    │    │ verified    │    │ quality gate   │    │ state     │  │
+└────────────┘    │ (2 rounds)  │    │ references  │    └────────────────┘    └───────────┘  │
+      ▲           └─────────────┘    └─────────────┘                                        │
+      └──────────────────────── next session reads ────────────────────────────────────────┘
 ```
 
-The **plan file is the shared contract**. make-plan writes steps with acceptance criteria → plan-loop validates the plan against the actual codebase (self-audit + Codex audit, max 2 rounds) → audit-loop consumes each step (criteria become tests in the test-first phase) → handover records progress and points back to the plan. The next session picks up where the last one left off.
+The **plan file is the shared contract** and flows through four stages. make-plan writes steps with acceptance criteria → plan-loop validates the plan against the actual codebase (self-audit + Codex audit, max 2 rounds) → the converged plan has verified file paths, API references, and dependencies → audit-loop consumes each step (criteria become tests in the test-first phase) → handover records progress and points back to the plan. The next session picks up where the last one left off.
 
-This creates continuity across Claude's ephemeral context windows — no single skill handles multi-session projects, but together they do.
+The plan-loop's output — a **final plan with codebase-verified references** — is what makes audit-loop effective. Without validation, audit-loop wastes cycles on steps that reference wrong APIs, missing files, or impossible dependencies. With it, each audit-loop cycle starts from a sound foundation.
 
 ## The Marketing Analytics Stack
 
