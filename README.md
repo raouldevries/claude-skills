@@ -8,9 +8,10 @@ A collection of reusable [Claude Code](https://docs.anthropic.com/en/docs/claude
 
 | Skill | Description |
 |-------|-------------|
-| [audit-loop](./engineering/audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. Supports project-specific Codex audit prompts via `.claude/codex-audit-prompt.md`. |
+| [audit-loop](./engineering/audit-loop/) | Test-first implement → self-audit → Codex audit → commit → handover. Full quality-gated workflow for a single plan step. Includes pre-cycle context checks (handover at cycle 4+) and formalized skip paths when codex finds no issues. Supports project-specific Codex audit prompts via `.claude/codex-audit-prompt.md`. |
 | [handover](./engineering/handover/) | Create a session handover document summarizing what was done, decisions made, current state, and next steps. |
 | [make-plan](./engineering/make-plan/) | Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Each step maps to one audit-loop cycle. |
+| [plan-loop](./engineering/plan-loop/) | Validate a plan against the codebase through iterative self-audit + Codex audit (max 2 rounds). Codex runs via subagent to preserve main context. Enforced by a stop hook that blocks session exit until convergence or cancellation. |
 
 ### Marketing Analytics
 
@@ -27,17 +28,17 @@ These three marketing skills are designed as an interlocking system — see [The
 These skills chain into a pipeline for multi-session project execution:
 
 ```
-  make-plan                    audit-loop                   handover
-┌────────────┐  Step X.Y    ┌────────────────┐  state    ┌───────────┐
-│ Structure  │──────────────▶│ Test-first     │──────────▶│ Snapshot  │
-│ the work   │  + acceptance │ implement +    │  + done   │ session   │──┐
-│ into steps │  criteria     │ quality gate   │  steps    │ state     │  │
-└────────────┘               └────────────────┘           └───────────┘  │
-      ▲                                                                  │
-      └──────────────────── next session reads ──────────────────────────┘
+  make-plan          plan-loop            audit-loop            handover
+┌────────────┐    ┌─────────────┐      ┌────────────────┐    ┌───────────┐
+│ Structure  │───▶│ Validate    │─────▶│ Test-first     │───▶│ Snapshot  │──┐
+│ the work   │    │ plan vs     │      │ implement +    │    │ session   │  │
+│ into steps │    │ codebase    │      │ quality gate   │    │ state     │  │
+└────────────┘    │ (2 rounds)  │      └────────────────┘    └───────────┘  │
+      ▲           └─────────────┘                                           │
+      └──────────────────── next session reads ────────────────────────────┘
 ```
 
-The **plan file is the shared contract**. make-plan writes steps with acceptance criteria as checkboxes → audit-loop consumes each step (criteria become tests in the test-first phase) → handover records progress and points back to the plan. The next session picks up where the last one left off.
+The **plan file is the shared contract**. make-plan writes steps with acceptance criteria → plan-loop validates the plan against the actual codebase (self-audit + Codex audit, max 2 rounds) → audit-loop consumes each step (criteria become tests in the test-first phase) → handover records progress and points back to the plan. The next session picks up where the last one left off.
 
 This creates continuity across Claude's ephemeral context windows — no single skill handles multi-session projects, but together they do.
 
@@ -197,19 +198,20 @@ Skills are designed to defer to your project's `CLAUDE.md` for project-specific 
 
 This means you can customize behaviour **without forking** — just add the relevant instructions to your project's `CLAUDE.md`.
 
-### Project-specific Codex audit prompt
+### Project-specific Codex audit prompts
 
-The audit-loop ships with a generic Codex review prompt (`references/codex-audit-prompt.md`) that covers universal concerns: correctness, security, error handling, concurrency, and data integrity. For domain-specific projects, you can override this by placing a `.claude/codex-audit-prompt.md` in your repo root:
+Both audit-loop and plan-loop ship with generic Codex review prompts that cover universal concerns. For domain-specific projects, you can override these by placing prompt files in your repo root:
 
 ```
 your-repo/
 ├── .claude/
-│   └── codex-audit-prompt.md   ← domain-specific (used if present)
+│   ├── codex-audit-prompt.md        ← audit-loop override (implementation review)
+│   └── codex-plan-audit-prompt.md   ← plan-loop override (plan validation)
 ├── src/
 └── ...
 ```
 
-The audit-loop resolves the prompt at runtime: project-level first, generic fallback if not found. Use the generic prompt as a starting template — keep the severity definitions and output format, replace the focus areas with your domain's concerns.
+Both skills resolve prompts at runtime: project-level first, generic fallback if not found. Use the generic prompts as starting templates — keep the severity definitions and output format, replace the focus areas with your domain's concerns.
 
 ### Forking
 
