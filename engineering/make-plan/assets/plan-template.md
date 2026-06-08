@@ -16,9 +16,8 @@
 
 | Skill | Role |
 |-------|------|
-| `/audit-loop` | Each step = one audit-loop cycle (test-first, implement, self-audit, codex audit, commit) |
-| `/handover` | Session transitions — create handover doc at session boundaries |
-| `/code-reviewer` | Quality gate before commits — review against audit files below |
+| `/audit-loop` | Each step = one audit-loop cycle: test-first, implement, self-audit, Codex audit, commit. Its self-audit and Codex audit phases are the built-in review gate. |
+| `/handover` | Session transitions; create handover doc at session boundaries |
 
 ### Project Skills
 
@@ -50,13 +49,13 @@
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  2. IMPLEMENT                                               │
-│     - Use `/audit-loop` Phase 1 (test-first)               │
+│     - Use `/audit-loop` (test-first)                       │
 │     <!-- slot: additional implementation skills -->         │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  3. AUDIT                                                   │
-│     - `/code-reviewer` against audit references above       │
+│     - code review against audit references above            │
 │     <!-- slot: project-specific audit steps -->             │
 └─────────────────────────────────────────────────────────────┘
                             ↓
@@ -75,8 +74,8 @@
 
 ### Quality Gates
 
-- [ ] `/audit-loop` was used for implementation (test-first)
-- [ ] `/code-reviewer` audit passed
+- [ ] `/audit-loop` was used (test-first)
+- [ ] Code review passed (audit-loop self-audit + Codex audit)
 - [ ] Acceptance criteria from the step are met
 - [ ] No regressions introduced
 <!-- Add project-specific gates:
@@ -155,6 +154,26 @@ c. <!-- TODO: third sub-step -->
 ### Quick Wins
 
 <!-- TODO: Low-effort, high-value items that can be done first -->
+
+---
+
+<!-- Optional: include a Decision Log for 3+ phase or multi-session plans.
+## Decision Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| YYYY-MM-DD | <!-- what was decided and what was rejected --> | <!-- why --> |
+
+---
+-->
+
+## Final Verification
+
+Run after the last step, before flipping Status to Completed. This is the whole-plan gate that the per-step audit-loops do not cover.
+
+- [ ] Full test suite / build / smoke check passes
+- [ ] Every acceptance criterion across all steps maps to a passing check (coverage gate)
+- [ ] No `<!-- TODO -->` or `<!-- slot -->` markers remain in this plan
 
 ---
 

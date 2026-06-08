@@ -12,8 +12,10 @@ Examples:
 """
 
 import argparse
+import hashlib
 import re
 import sys
+import unicodedata
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -23,9 +25,27 @@ TEMPLATE_PATH = SKILL_DIR / "assets" / "plan-template.md"
 
 
 def to_kebab_case(title: str) -> str:
-    """Convert a title to kebab-case filename."""
-    # Lowercase, replace non-alphanumeric with hyphens, collapse multiples
-    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    """Convert a title to a kebab-case filename stem.
+
+    Non-ASCII letters are transliterated to their closest ASCII form
+    (cafe -> cafe, niño -> nino) so accented or non-Latin titles do not
+    collapse to empty or colliding slugs. If nothing usable remains
+    (punctuation-only or fully non-transliterable input), fall back to a
+    date-stamped stem so the result is never a bare "-plan.md".
+    """
+    # Decompose accents, drop non-ASCII, then slugify.
+    ascii_title = (
+        unicodedata.normalize("NFKD", title)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_title.lower()).strip("-")
+    if not slug:
+        # Nothing transliterable remained (e.g. punctuation-only or CJK-only
+        # titles). Date-stamp and append a short content hash so two distinct
+        # untranslatable titles created on the same day still differ.
+        digest = hashlib.sha1(title.encode("utf-8")).hexdigest()[:8]
+        slug = f"plan-{date.today().isoformat()}-{digest}"
     return slug
 
 
@@ -36,19 +56,13 @@ def resolve_output_dir(provided_path: Optional[str]) -> Path:
 
     cwd = Path.cwd()
 
-    # Check for memory-bank/ directory (common in projects)
-    memory_bank = cwd / "memory-bank"
-    if memory_bank.is_dir():
-        plans_dir = memory_bank / "plans"
-        plans_dir.mkdir(exist_ok=True)
-        return plans_dir
-
-    # Check for .claude/plans/ in project
+    # Prefer a project-local .claude/plans/ directory.
     claude_plans = cwd / ".claude" / "plans"
     if claude_plans.is_dir():
         return claude_plans
 
     # Fallback to ~/.claude/plans/
+    # (For other conventions such as memory-bank/plans/, pass --path.)
     default_dir = Path.home() / ".claude" / "plans"
     default_dir.mkdir(parents=True, exist_ok=True)
     return default_dir

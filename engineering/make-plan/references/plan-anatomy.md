@@ -2,6 +2,22 @@
 
 Section-by-section guide for writing implementation plans. Each section documents purpose, inclusion criteria, format, and a concise example.
 
+## Contents
+
+1. [Title & Metadata](#1-title--metadata)
+2. [Skills & Tools](#2-skills--tools)
+3. [Implementation Workflow](#3-implementation-workflow)
+4. [Context / Analysis](#4-context--analysis)
+5. [Phase / Step Structure](#5-phase--step-structure)
+6. [Risk Areas & Recommendations](#6-risk-areas--recommendations)
+7. [Progress Tracking](#7-progress-tracking)
+8. [Database Schema / Model Changes](#8-database-schema--model-changes-conditional) *(conditional)*
+9. [API Endpoints / Public Interface](#9-api-endpoints--public-interface-conditional) *(conditional)*
+10. [Code Examples & Patterns](#10-code-examples--patterns-conditional) *(conditional)*
+11. [Table of Contents](#11-table-of-contents-conditional) *(conditional)*
+12. [Final Verification](#12-final-verification-closing-gate)
+13. [Decision Log](#13-decision-log-conditional) *(conditional)*
+
 ---
 
 ## 1. Title & Metadata
@@ -38,12 +54,12 @@ Section-by-section guide for writing implementation plans. Each section document
 
 Three sub-sections:
 
-1. **Default Skills** — table with Skill and Role columns. Always includes `/audit-loop`, `/handover`, `/code-reviewer`.
+1. **Default Skills** — table with Skill and Role columns. Pairs `/audit-loop` with `/handover`; audit-loop's self-audit and Codex audit phases are the built-in review gate. Add your project's standalone review skill when you have one; fall back to plain TDD + commit when a skill is absent.
 2. **Project Skills** — additional skills discovered during codebase exploration. Common additions:
    - `/frontend-design` — when plan involves UI work
    - `/webapp-testing` — when plan needs browser-level verification
    - `/doc-coauthoring` — when plan includes documentation deliverables
-3. **Audit References** — table of project-specific review standards (code style guides, linting configs, CLAUDE.md rules) that `/code-reviewer` should check against.
+3. **Audit References** — table of project-specific review standards (code style guides, linting configs, CLAUDE.md rules) for the review gate (audit-loop's audit phases, or your project's review skill) to check against.
 
 **Skill selection during Discovery:**
 - Scan the project's `.claude/` directory and CLAUDE.md for skill references
@@ -69,18 +85,18 @@ ASCII box diagram with 5 stages: READ PLAN → IMPLEMENT → AUDIT → UPDATE PR
   ```
   │  2. IMPLEMENT                                               │
   │     - Use `/frontend-design` for component creation         │
-  │     - Use `/audit-loop` Phase 1 (test-first)               │
+  │     - Use `/audit-loop` (test-first)                       │
   ```
 - AUDIT box: Replace slot with project audit references:
   ```
   │  3. AUDIT                                                   │
-  │     - `/code-reviewer` against `.ruff.toml`, `CLAUDE.md`   │
+  │     - code review against `.ruff.toml`, `CLAUDE.md`        │
   │     - `/webapp-testing` for browser verification            │
   ```
 
 ### 3b. Audit Files Reference
 
-Table listing project-specific files that `/code-reviewer` should check against. Populated during Discovery.
+Table listing project-specific files that the review gate (audit-loop's audit phases, or your project's review skill) should check against. Populated during Discovery.
 
 ### 3c. Quality Gates
 
@@ -279,6 +295,44 @@ c. Third action
 **When:** Plan has 5+ phases.
 
 **Format:** Markdown links to each phase heading, placed after the metadata block.
+
+---
+
+## 12. Final Verification (closing gate)
+
+**Purpose:** Verify the finished work against the whole plan, not just the last step. The per-step audit-loops check each step in isolation; this is the only gate that confirms the plan as a whole is done.
+
+**When:** Always. Lives near the end of the plan, before Progress Tracking. Keep it distinct from the per-step Quality Gates so it is not mistaken for a single-step check.
+
+**Format:**
+
+```markdown
+## Final Verification
+
+- [ ] Full test suite / build / smoke check passes
+- [ ] Every acceptance criterion across all steps maps to a passing check (coverage gate)
+- [ ] No `<!-- TODO -->` or `<!-- slot -->` markers remain
+```
+
+**Rule:** Status flips to Completed only after every box here is checked.
+
+---
+
+## 13. Decision Log (Conditional)
+
+**Purpose:** Record non-obvious decisions and what was rejected, so a later session (or `/handover`) does not relitigate them.
+
+**When:** Optional. Worth it for 3+ phase or multi-session plans. Skip on small plans, where it adds upkeep without payoff.
+
+**Format:**
+
+```markdown
+## Decision Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-02-15 | Use JWT over session cookies | Stateless; matches existing `auth.ts` |
+```
 
 ---
 

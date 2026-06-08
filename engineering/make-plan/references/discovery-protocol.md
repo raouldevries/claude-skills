@@ -6,9 +6,9 @@ How to gather context before writing a plan. This is Phase 1 (Discover) of the m
 
 ## Delegation Model
 
-Use **subagents for fact-gathering**, keep **synthesis and plan authoring** with the orchestrator.
+For a multi-area or unfamiliar codebase, use **subagents for fact-gathering** (cap ~3). For a focused, single-area plan, read the relevant files directly: Opus 4.8 discovers filesystem state well, and a small fan-out is rarely worth the token overhead. Either way, keep **synthesis and plan authoring** with the orchestrator, and complete discovery before writing.
 
-- Subagents explore docs, grep for patterns, read file signatures
+- Subagents, when used, explore docs, grep for patterns, read file signatures
 - Orchestrator consolidates findings, decides phase boundaries, writes the plan
 - If a subagent report is incomplete or lacks evidence, re-check with targeted reads before finalizing
 
@@ -16,7 +16,7 @@ Use **subagents for fact-gathering**, keep **synthesis and plan authoring** with
 
 ## Subagent Deployment
 
-Deploy Explore subagents to search for:
+When delegating, deploy Explore subagents (cap ~3) to search for:
 
 1. **Documentation & instructions** — README files, CLAUDE.md, `docs/` directories, inline doc comments
 2. **Existing code patterns** — Architecture conventions, module structure, naming patterns, error handling

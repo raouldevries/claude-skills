@@ -1,49 +1,69 @@
 ---
 name: make-plan
-description: Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Use when starting multi-step projects, refactoring efforts, feature implementations, security audits, or any work spanning multiple files or sessions. Also use when the user asks to "make a plan", "create a plan", "write an implementation plan", or similar planning requests.
+description: Create structured implementation plans with phased breakdowns, acceptance criteria, quality gates, and progress tracking. Creates the plan file that precedes execution; each step maps to one audit-loop cycle. Use when starting multi-step projects, refactoring efforts, feature implementations, a multi-step security-hardening effort, or non-trivial work spanning multiple files or sessions. Also use when the user asks to "make a plan", "create a plan", "write an implementation plan", or similar planning requests.
 ---
 
 # Make Plan
 
-Create a structured plan file following a proven anatomy: metadata, skills & tools, workflow diagram, phased steps with acceptance criteria, risk areas, and progress tracking. Plans are designed so each step can be consumed by `/audit-loop` as an independent implement-audit-fix cycle.
+Create a structured plan file following a proven anatomy: metadata, skills & tools, workflow diagram, phased steps with acceptance criteria, risk areas, and progress tracking. Each step is designed to be consumed by `/audit-loop` as one independent implement-audit-fix cycle.
+
+## When to plan
+
+Use make-plan for multi-file, multi-session, or multi-phase work. If you could describe the diff in one sentence and finish it in a single session, skip the plan and implement directly. Planning a trivial task adds review overhead without payoff.
+
+## Effort
+
+Run discovery and exploration at `xhigh` effort. Write the plan at `high` as a floor. Avoid `max`, which tends to overthink a planning task. Effort was recalibrated in Opus 4.8, so a setting tuned on an earlier model no longer maps directly.
 
 ## Workflow
 
-Four sequential phases:
+Four phases. Only one ordering is load-bearing: finish read-only discovery before you write. Treat the rest as goals, not a script.
 
 1. **Discover** — Explore the codebase, gather context, identify patterns and constraints
-2. **Structure** — Determine phases, steps, dependencies, and which optional sections to include
-3. **Write** — Generate the plan file using the template and formatting guide
-4. **Review** — Present plan to user, iterate on feedback
+2. **Structure** — Resolve open scope questions, then decide phases, steps, dependencies, and which optional sections to include
+3. **Write** — Generate the plan file using the template and the anatomy reference
+4. **Review** — Present the plan to the user, iterate on feedback
 
 ---
+
+## Discipline
+
+| Rationalization | Reality |
+|---|---|
+| "I already know this codebase" | Codebases drift between sessions. Run discovery before writing, even on familiar code. |
+| "The step is self-explanatory, no acceptance criteria needed" | If you can't write a testable acceptance criterion, the step is underspecified. Split it. |
+| "One large step is simpler than several small ones" | Large steps fail audit-loops. Each step must fit one audit-loop cycle. |
+| "I'll add the file paths later" | File paths now. Vague plans produce wrong implementations. |
 
 ## Phase 1: Discover
 
 ### Scaffold the plan file
 
-Run the init script to create a plan file with metadata pre-filled:
+Run the init script. Use the absolute path so it works from any project directory:
 
 ```bash
-python3 skills/make-plan/scripts/init-plan.py "<Plan Title>" --target "<goal>"
+python3 ~/.claude/skills/make-plan/scripts/init-plan.py "<Plan Title>" --target "<goal>"
 ```
 
-Optional `--path` flag to specify output directory. Defaults to: `memory-bank/plans/` → `.claude/plans/` → `~/.claude/plans/`.
+Optional `--path` flag to specify the output directory. Defaults to: `.claude/plans/` → `~/.claude/plans/` (pass `--path` for another location, e.g. `memory-bank/plans/`).
 
 ### Explore the codebase
 
-Deploy Explore subagents for fact-gathering. Follow the protocol in `references/discovery-protocol.md`:
+For a multi-area or unfamiliar codebase, delegate fact-gathering to Explore subagents (cap ~3) following `references/discovery-protocol.md`. For a focused, single-area plan, read the relevant files directly. Either way, complete discovery before writing.
 
-- Search for documentation, README, CLAUDE.md instructions
-- Map existing code patterns, architecture, and test infrastructure
-- Find related past plans to learn from
-- Scan `.claude/skills/` for project-applicable skills
+Search for:
 
-**Subagent reporting contract** — Each subagent must report: sources consulted, concrete findings (exact paths/signatures), copy-ready snippet locations, confidence notes + gaps. Reject reports without source citations.
+- Documentation, README, CLAUDE.md instructions
+- Existing code patterns, architecture, and test infrastructure
+- Related past plans to learn from
+- Project-applicable skills in `.claude/skills/`
+
+The subagent reporting contract (sources actually read, exact paths/signatures, copy-ready snippet locations, confidence notes + gaps; reject reports without citations) is defined in `references/discovery-protocol.md`.
 
 ### Consolidate findings
 
 As orchestrator, synthesize subagent reports into:
+
 - **Allowed APIs / Existing Patterns** list with file path citations
 - **Anti-patterns to avoid** (methods that don't exist, deprecated params)
 - **Reusable code map** (existing code that steps can reference)
@@ -53,106 +73,38 @@ As orchestrator, synthesize subagent reports into:
 
 ## Phase 2: Structure
 
-Determine plan shape based on scope:
+**Resolve scope first.** If discovery surfaced unresolved scope questions (ambiguous requirements, unstated constraints, competing approaches), batch up to 3-5 of them to the user and get answers before writing. Skip this when scope is unambiguous or the change is small. Resolving one wrong assumption now is cheaper than unwinding it from a finished plan.
+
+Then decide plan shape:
 
 - **Number of phases** — Group related steps. Typical: 2-5 phases for medium projects, up to 8 for large ones.
 - **Steps per phase** — Break into independently executable units (Step X.Y format). Each step = one `/audit-loop` cycle.
 - **Complexity per step** — Assign S/M/L. If a step is L, consider splitting.
 - **Dependencies** — Map which steps depend on others.
-- **Optional sections** — Include Database Schema, API Endpoints, Code Examples only when relevant.
-
-Decision guide for optional sections (see `references/plan-anatomy.md` for full details):
-- Data model changes → include Database Schema section
-- New endpoints or public APIs → include API Endpoints section
-- New patterns that multiple steps follow → include Code Examples section
-- 5+ phases → include Table of Contents
-- 3+ phases → include Risk Areas section (always recommended)
+- **Optional sections** — Include Database Schema, API Endpoints, Code Examples, Table of Contents, and Risk Areas per the inclusion criteria in `references/plan-anatomy.md`.
 
 ---
 
 ## Phase 3: Write
 
-Fill in the scaffolded plan file. Reference `references/plan-anatomy.md` for section-specific formatting.
+Fill in the scaffolded plan file. Reference `references/plan-anatomy.md` for section-by-section format; the template marks every slot. A few standing rules the reference assumes:
 
-### Populate Skills & Tools
-
-Always include the three default skills:
-
-| Skill | Role in Plan |
-|-------|-------------|
-| `/audit-loop` | Each step maps to one audit-loop cycle: test-first → implement → self-audit → codex audit → commit. Steps must have acceptance criteria encodable as tests. |
-| `/handover` | Use at session boundaries. Progress tracking format is compatible with handover's progress updates. |
-| `/code-reviewer` | Quality gate before commits. Embed in the workflow diagram's AUDIT step. |
-
-Add project-specific skills discovered in Phase 1. Common additions:
-- `/frontend-design` — UI component work
-- `/webapp-testing` — browser-level verification
-- `/doc-coauthoring` — documentation deliverables
-
-Populate the **Audit References** table with project-specific review standards (linting configs, CLAUDE.md code style rules, code review guides).
-
-### Customize the workflow diagram
-
-The template's ASCII flowchart has `<!-- slot: ... -->` markers. Replace them with actual skills:
-
-**IMPLEMENT step** — Default is `/audit-loop` Phase 1. For UI work, add `/frontend-design`:
-```
-│  2. IMPLEMENT                                               │
-│     - Use `/frontend-design` for component creation         │
-│     - Use `/audit-loop` Phase 1 (test-first)               │
-```
-
-**AUDIT step** — Reference the audit files from the Skills & Tools table:
-```
-│  3. AUDIT                                                   │
-│     - `/code-reviewer` against `.ruff.toml`, `CLAUDE.md`   │
-│     - `/webapp-testing` for browser verification            │
-```
-
-Update quality gates to match the skills listed.
-
-### Write Phase/Step content
-
-For each step, include all required fields:
-
-- **Acceptance criteria** — Checkbox list. Must be testable (for `/audit-loop` compatibility).
-- **Sub-steps** — Lettered list (a, b, c). Concrete actions, not vague goals.
-- **Files** — Backtick-wrapped paths to create or modify.
-- **Dependencies** — References to other steps, or "None".
-- **Complexity** — S, M, or L.
-
-Frame tasks as copy-based: "Follow the pattern in `src/routes/users.ts`" not "Migrate existing code."
-
-### Fill Context section
-
-Use the consolidated findings from Phase 1:
-- **Current State** — Codebase state relevant to the plan
-- **Key Patterns Found** — APIs, utilities, conventions to reuse (with file paths)
-- **Critical Gaps** — What's missing or needs to change
-
-### Complete Progress Tracking
-
-Must exactly mirror the Phase/Step structure. Same titles, same order:
-
-```markdown
-### Phase 1: Phase Title
-- [ ] Step 1.1: Step title
-- [ ] Step 1.2: Step title
-
-### Phase 2: Phase Title
-- [ ] Step 2.1: Step title
-```
-
-Date entries get added during implementation: `_(completed YYYY-MM-DD)_`
+- **Skills & Tools** — This set pairs `/audit-loop` (test-first implement, self-audit, Codex audit, commit) with `/handover` (session boundaries). The code-review gate is built into audit-loop's self-audit and Codex audit phases; add your project's standalone review skill under Project Skills if you use one. Fall back to plain TDD + commit when a skill is absent. Populate **Audit References** with project-specific review standards (linting configs, CLAUDE.md rules, code review guides).
+- **Workflow diagram** — The template's ASCII flowchart has `<!-- slot: ... -->` markers. Replace them with the actual skills (for example `/frontend-design` in IMPLEMENT, `/webapp-testing` in AUDIT) and update the quality gates to match.
+- **Steps** — Each must be independently executable with testable acceptance criteria (audit-loop compatibility). Use lettered sub-steps (a, b, c). Backtick all file paths. Frame tasks as copy-based ("Follow the pattern in `src/routes/users.ts`"), not "migrate the existing code."
+- **Context section** — Fill from the consolidated discovery findings: Current State, Key Patterns Found (with file paths), Critical Gaps.
+- **Progress Tracking** — Must mirror the Phase/Step structure exactly: same titles, same order. Date entries get added during implementation: `_(completed YYYY-MM-DD)_`.
+- **Final Verification** — Close the plan with a Final Verification step: full suite/build/smoke plus a coverage check mapping every acceptance criterion to a passing check, before Status flips to Completed. This is the whole-plan gate that the per-step audit-loops do not cover.
 
 ---
 
 ## Phase 4: Review
 
-1. Present the plan to the user
-2. Call out any assumptions or decisions that need confirmation
-3. Iterate based on feedback — adjust scope, reorder steps, add/remove sections
-4. Confirm the plan is approved before implementation begins
+1. Before presenting, scan the plan for any remaining `<!-- TODO -->` / `<!-- slot -->` markers and fill or delete them.
+2. Present the plan to the user.
+3. Call out any remaining assumptions or decisions that need confirmation.
+4. Iterate on feedback: adjust scope, reorder steps, add or remove sections.
+5. Confirm the plan is approved before implementation begins.
 
 ---
 
