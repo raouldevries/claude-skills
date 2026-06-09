@@ -163,6 +163,7 @@ Spawn an Agent (type: `code-reviewer`) with the following task:
    ```bash
    { cat "$PROMPT"; printf "\n\n--- CODEBASE CONTEXT ---\n\n"; cat /tmp/plan-loop-context.md; printf "\n\n--- BEGIN PLAN ---\n\n"; cat <plan-file-path>; } | codex exec --sandbox read-only - 2>&1 | tee /tmp/codex-plan-audit-output.md
    ```
+   If `codex` is not on PATH in the subagent environment, or `${PIPESTATUS[1]}` (the codex stage of the pipe — `tee` would otherwise mask its non-zero exit via `$?`) is non-zero, return `CODEX_UNAVAILABLE` as the only output so the main session invokes the Fallback below. Do NOT parse empty or error output as "No P0/P1/P2 findings" — that would converge the plan without an audit.
 
 3. **Parse output** — read `/tmp/codex-plan-audit-output.md` and extract findings into structured format:
    ```
@@ -176,7 +177,7 @@ Spawn an Agent (type: `code-reviewer`) with the following task:
 
 4. **Return** only the structured findings list (or "No P0/P1/P2 findings.") to the main session.
 
-**Fallback**: If the subagent cannot run `codex exec` (e.g., `codex` not on PATH in subagent environment), the main session runs the codex command from step 2 above, then spawns a `code-reviewer` subagent that only reads `/tmp/codex-plan-audit-output.md` and returns the parsed findings.
+**Fallback**: If the subagent returns `CODEX_UNAVAILABLE` (codex not on PATH in the subagent environment, or `${PIPESTATUS[1]}` non-zero), the main session runs the codex command from step 2 above (it may have a broader PATH than the subagent), then spawns a `code-reviewer` subagent that only reads `/tmp/codex-plan-audit-output.md` and returns the parsed findings.
 
 Note: `codex exec` reads stdin as the prompt when `-` is passed. The audit instructions, codebase context, and plan are concatenated into a single stdin stream. Wait for completion — this may take 1-2 minutes.
 
