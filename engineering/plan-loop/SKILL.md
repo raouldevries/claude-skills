@@ -1,6 +1,6 @@
 ---
 name: plan-loop
-description: Use when a plan needs to be validated against the actual codebase before implementation begins. Iterative self-audit + Codex audit until convergence.
+description: Use when a drafted implementation plan needs validating against the actual codebase before implementation begins — triggers like "validate this plan", "run plan-loop", "audit my plan", or "check this plan for logic errors". Refines the plan through iterative Claude self-audit + Codex audit until convergence. NOT for creating a plan from scratch (use make-plan), nor for implementing plan steps (use audit-loop).
 ---
 
 # Plan Loop
@@ -64,7 +64,7 @@ After activation, the stop hook blocks session exit until the plan converges or 
 │                                      │                     │
 │                              No FIX findings               │
 │                              at threshold?                  │
-│                              ── OR round 2 ──               │
+│          ── OR round 2 (P1-only; P0 → escalate) ──          │
 │                                      │                     │
 │                                      ▼                     │
 │                                 CONVERGED                   │
@@ -98,7 +98,7 @@ This phase runs only in round 1. In round 2+, the plan revision happens in Phase
 
 **Skip rule**: In round 2, skip this phase entirely and go straight to Phase 3 (Context Assembly + Codex Audit). The self-audit's value peaks in round 1 when the plan is roughest. In round 2, Codex alone provides sufficient coverage.
 
-Spawn a Task sub-agent (type: `code-reviewer`) using the prompt template at `~/.claude/skills/plan-loop/references/self-audit-prompt.md`. Populate placeholders with the current plan file path, relevant codebase files, round number, and prior round fixes (if any).
+Spawn a Task sub-agent (type: `code-reviewer`) using the prompt template at `~/.claude/skills/plan-loop/references/self-audit-prompt.md`. Populate its two placeholders — `{{PLAN_FILE_PATH}}` and `{{FILE_LIST}}` (the relevant codebase files to verify).
 
 The sub-agent should:
 1. Read the current plan file
@@ -214,15 +214,11 @@ Log all verdicts in the conversation using the triage log format:
 - Threshold: ABOVE|BELOW
 ```
 
-#### Apply round-aware severity threshold
+#### Apply the severity threshold
 
-After triaging all findings, filter FIX verdicts against the current round's threshold:
+After triaging all findings, filter FIX verdicts against the threshold: **fix all P0 and P1 findings in both rounds; log P2 but never revise the plan for it.** (The 2-round hard cap, not a rising bar, is what bounds the loop.)
 
-| Rounds | Fix threshold | What to fix |
-|--------|--------------|-------------|
-| 1–2 | P0 + P1 | Both rounds: fix structural flaws and ambiguity |
-
-Mark each FIX finding as `ABOVE` or `BELOW` the threshold. Only `ABOVE` findings trigger plan revisions.
+Mark each FIX finding as `ABOVE` (P0/P1) or `BELOW` (P2). Only `ABOVE` findings trigger plan revisions.
 
 #### Convergence check
 
@@ -241,16 +237,15 @@ If any FIX findings are `ABOVE` the threshold → proceed to Phase 5 (Fix).
 
 > **Guardrail**: The ONLY file you may modify in this phase is the plan `.md` file. Before every Edit/Write call, verify the target is the plan file. If it is not, stop.
 
-1. List all FIX findings that are `ABOVE` the current round's threshold
+1. List all FIX findings that are `ABOVE` the threshold
 2. Apply ALL fixes in a single pass to the **plan file text** — reword steps, update file paths, revise acceptance criteria, adjust dependencies. Batch all changes into one revision rather than fixing findings individually. "Revise" means editing the `.md` plan document, NOT writing implementation code.
 3. Do NOT address DISMISS or SCOPE-OUT findings
 4. Do NOT create, edit, or write to any source code file
 5. Self-audit P0/P1 findings (from round 1) should already be applied in Phase 2. If any were inadvertently missed, apply them now before incrementing the round
-6. Compress round 1 context (see Inter-Round Context Compression below), then increment to round 2 and skip to codex-audit:
+6. Compress round 1 context (see Inter-Round Context Compression below), then increment to round 2 (the `round` subcommand advances directly to the codex-audit phase, since self-audit is skipped in round 2):
 
 ```bash
 ~/.claude/skills/plan-loop/hooks/update-state.sh round 2
-~/.claude/skills/plan-loop/hooks/update-state.sh phase codex-audit
 ```
 
 ## Inter-Round Context Compression
@@ -316,7 +311,7 @@ When the triage phase produces zero FIX findings above the current threshold:
 ## Completion Verification
 
 Before claiming convergence or completing any round:
-1. Confirm zero FIX findings are ABOVE the current round's threshold — count them explicitly
+1. Confirm zero FIX findings are ABOVE the threshold — count them explicitly
 2. Verify every DISMISS verdict has a file path citation — re-read your triage log
 3. Confirm every FIX was actually applied to the plan file — re-read the changed sections
 

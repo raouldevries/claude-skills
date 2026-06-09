@@ -44,6 +44,10 @@ Examples: vague acceptance criteria requiring implementer guesswork, step orderi
 **P2** — Improvement that would make the plan clearer or more efficient but isn't blocking.
 Examples: steps that could be parallelized, acceptance criteria that could be more specific, missing but inferrable file paths, minor scope gaps.
 
+## Language-Semantic Findings
+
+If a finding involves language-specific semantics (decorator ordering, inheritance resolution, async/await behavior, metaclass interactions, import resolution, etc.), you MUST include a concrete code example demonstrating the expected behavior. Do not state semantics without a verifiable example.
+
 ## Output Format
 
 For each finding:

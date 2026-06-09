@@ -1,11 +1,12 @@
 #!/bin/bash
 # Centralized state management for plan-loop stop hook.
-# All state file operations go through this script to ensure
-# consistent path resolution and atomic writes.
+# Lifecycle/phase transitions go through this script (consistent path resolution
+# + atomic writes). NOTE: stop-hook.sh also writes the block counters
+# (total_blocks, last_blocked_session_id) directly on its block paths.
 #
 # Usage:
 #   update-state.sh init <plan_name>        # create state file (round 1, phase "draft")
-#   update-state.sh round <round_num>       # transition to new round, reset phase to "self-audit"
+#   update-state.sh round <round_num>       # advance round; phase -> codex-audit (round 2 skips self-audit)
 #   update-state.sh phase <phase_name>      # transition phase within current round
 #   update-state.sh converge                # mark plan as converged
 #   update-state.sh claim <session_id>       # register owning session (from stop hook block reason)
@@ -14,7 +15,7 @@
 #
 # Phases (per round): draft, self-audit, codex-audit, triage, fix
 
-command -v jq >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 || { echo "Error: jq is required but not found on PATH." >&2; exit 1; }
 
 # Resolve project root (single source of truth for state file path)
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -33,6 +34,13 @@ case "$1" in
       fi
     fi
     mkdir -p "${ROOT}/.claude"
+    # Keep transient loop state out of version control (idempotent; repo-local
+    # exclude, never committed; resolved path works in worktrees too). F22.
+    EXCLUDE=$(git rev-parse --git-path info/exclude 2>/dev/null)
+    if [ -n "$EXCLUDE" ] && [ -d "$(dirname "$EXCLUDE")" ]; then
+      grep -qF "plan-loop.local" "$EXCLUDE" 2>/dev/null \
+        || echo ".claude/plan-loop.local.*" >> "$EXCLUDE"
+    fi
     jq -n --arg name "$PLAN_NAME" --arg ts "$TS" \
       '{active:true, round:1, phase:"draft", converged:false, total_blocks:0, plan_name:$name, session_id:"", last_blocked_session_id:"", started_at:$ts, last_transition:$ts, cancelled:false}' \
       > "$TEMP" && mv "$TEMP" "$STATE_FILE" || { rm -f "$TEMP"; exit 1; }
@@ -54,7 +62,7 @@ case "$1" in
       exit 1
     fi
     jq --arg ts "$TS" --argjson round "$ROUND" \
-      '.round=$round | .phase="self-audit" | .last_transition=$ts' \
+      '.round=$round | .phase="codex-audit" | .last_transition=$ts' \
       "$STATE_FILE" > "$TEMP" && mv "$TEMP" "$STATE_FILE" || { rm -f "$TEMP"; exit 1; }
     ;;
   phase)
@@ -79,12 +87,14 @@ case "$1" in
     ;;
   cancel)
     [ -f "$STATE_FILE" ] || { echo "No active plan loop found."; exit 0; }
-    # Set cancelled flag first (race condition safety net for hook)
+    # Capture the report BEFORE flipping the cancelled flag, so a concurrent stop-hook
+    # that sees cancelled=true and deletes the file first can't blank the message (F28).
+    REPORT=$(jq -r '"Cancelled plan loop \"\(.plan_name)\" at round \(.round), phase \(.phase)"' "$STATE_FILE" 2>/dev/null)
+    # Set cancelled flag (race condition safety net for hook)
     jq '.cancelled=true' "$STATE_FILE" > "$TEMP" && mv "$TEMP" "$STATE_FILE" \
       || { rm -f "$TEMP"; echo "Warning: could not set cancelled flag, deleting anyway." >&2; }
-    # Report and delete
-    jq -r '"Cancelled plan loop \"\(.plan_name)\" at round \(.round), phase \(.phase)"' "$STATE_FILE" 2>/dev/null
     rm -f "$STATE_FILE"
+    [ -n "$REPORT" ] && echo "$REPORT"
     ;;
   claim)
     [ -f "$STATE_FILE" ] || { echo "Error: no active plan loop to claim." >&2; exit 1; }

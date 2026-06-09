@@ -9,18 +9,19 @@
 #     - Staleness: state >4h old from crashed/abandoned session -> approve + cleanup
 #     - Emergency ceiling: 20 total blocks -> approve (prevents permanent trap)
 #
-# Fail-open: every code path outputs {"decision":"approve"} or {"decision":"block"}.
+# Fail-open: every code path outputs {} (allow the stop) or {"decision":"block"}.
+# Per the Stop-hook spec, "block" is the only valid decision value; {} / exit 0 is allow.
 
 approve() {
-  echo '{"decision":"approve"}'
+  echo '{}'
 }
 
 main() {
   # --- Dependency check ---
   command -v jq >/dev/null 2>&1 || { approve; return; }
 
-  # --- Read hook input from stdin ---
-  HOOK_INPUT=$(cat)
+  # --- Read hook input from stdin (guard against a TTY/no-pipe invocation hanging) ---
+  if [ -t 0 ]; then HOOK_INPUT="{}"; else HOOK_INPUT=$(cat); fi
 
   # --- Guard: stop_hook_active prevents infinite recursion ---
   STOP_HOOK_ACTIVE=$(echo "$HOOK_INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)
@@ -135,17 +136,25 @@ Read .claude/plan-loop.local.json to confirm current round/phase, then continue 
   # Unclaimed loop: one-shot block with claim-only reason, approve on repeat
   LAST_BLOCKED=$(echo "$STATE_JSON" | jq -r '.last_blocked_session_id // ""' 2>/dev/null)
 
+  # A session with no id can never claim ownership (claim requires a non-empty id),
+  # so treat it as a non-owner and approve rather than re-blocking it on every exit.
+  if [ -z "$HOOK_SESSION_ID" ]; then
+    approve; return
+  fi
+
   if [ -n "$HOOK_SESSION_ID" ] && [ "$HOOK_SESSION_ID" = "$LAST_BLOCKED" ]; then
     # Same session blocked again without claiming → not the owner → approve
     approve; return
   fi
 
   # First block for this session: record and block with minimal claim reason
+  # NOTE: the unclaimed path is a holding pattern, not a real plan transition, so it
+  # does NOT refresh .last_transition — that keeps the staleness clock measuring time
+  # since the last genuine transition (F6), not since the last incidental block.
   NEW_BLOCKS=$((TOTAL_BLOCKS + 1))
   TEMP_FILE="${STATE_FILE}.tmp.$$"
-  jq --argjson nb "$NEW_BLOCKS" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    --arg lbs "$HOOK_SESSION_ID" \
-    '.total_blocks = $nb | .last_transition = $ts | .last_blocked_session_id = $lbs' \
+  jq --argjson nb "$NEW_BLOCKS" --arg lbs "$HOOK_SESSION_ID" \
+    '.total_blocks = $nb | .last_blocked_session_id = $lbs' \
     "$STATE_FILE" > "$TEMP_FILE" && mv "$TEMP_FILE" "$STATE_FILE" \
     || { rm -f "$TEMP_FILE"; approve; return; }
 
@@ -168,7 +177,7 @@ If you are NOT running /plan-loop, proceed with your current task — your next 
 # from main() are intentionally visible to Claude Code's hook stderr output.
 OUTPUT=$(main) || true
 if [ -z "$OUTPUT" ]; then
-  echo '{"decision":"approve"}'
+  echo '{}'
 else
   echo "$OUTPUT"
 fi

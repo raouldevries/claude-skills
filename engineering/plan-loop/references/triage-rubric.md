@@ -63,19 +63,13 @@ Justification: Valid concern but this plan's goal is initial implementation, not
 Future work: Add to project backlog as a follow-up task.
 ```
 
-## Round-Aware Severity Thresholds
+## Severity Threshold
 
-Not all findings are worth fixing in every round. As the plan matures through rounds, the bar for what justifies another revision cycle rises.
-
-| Rounds | Fix threshold | Rationale |
-|--------|--------------|-----------|
-| 1–2 | P0 + P1 | Both rounds: fix structural flaws and ambiguity |
-
-Both rounds use the same threshold. Round cap at 2 prevents diminishing-returns cycles.
+The fix threshold is the same in both rounds: **fix all P0 and P1 findings; log P2 but do not revise the plan for it.** The 2-round hard cap, not a rising bar, is what prevents diminishing-returns cycles.
 
 **Applying the threshold:**
 - Triage ALL findings regardless of round (every finding gets a verdict)
-- After triage, filter FIX verdicts against the current round's threshold
+- After triage, filter FIX verdicts against the threshold
 - Findings below threshold: keep the FIX verdict in the log but do NOT revise the plan for them
 - Below-threshold findings are accepted risk for this plan iteration and are included in the convergence summary for the user to review post-convergence
 
@@ -83,12 +77,12 @@ Both rounds use the same threshold. Round cap at 2 prevents diminishing-returns 
 
 ## Convergence Criteria
 
-The plan has **converged** when a Codex audit round produces zero FIX findings that meet the current round's severity threshold after triage.
+The plan has **converged** when a Codex audit round produces zero FIX findings that meet the severity threshold after triage.
 
 In other words:
 - Run Codex audit → get findings
 - Triage each finding → assign verdicts
-- Filter FIX verdicts by round threshold
+- Filter FIX verdicts by the threshold
 - If zero FIX findings survive the filter → **converged**
 - If any FIX findings survive → apply fixes, increment round, run another cycle
 
@@ -106,7 +100,7 @@ Log every finding's triage result for auditability. Use this format:
 - Evidence/Justification: <as required by verdict>
 - Action: <plan change if FIX, "none" otherwise>
 - Future work: <for SCOPE-OUT only — where to track, or "Not tracked">
-- Threshold: <ABOVE|BELOW current round threshold>
+- Threshold: <ABOVE|BELOW threshold>
 
 ### Finding 2: ...
 ```
