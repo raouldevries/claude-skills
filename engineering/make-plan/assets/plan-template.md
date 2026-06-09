@@ -49,7 +49,7 @@
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  2. IMPLEMENT                                               │
-│     - Use `/audit-loop` (test-first)                       │
+│     - `/audit-loop` (run) or TDD+commit (skip)             │
 │     <!-- slot: additional implementation skills -->         │
 └─────────────────────────────────────────────────────────────┘
                             ↓
@@ -74,7 +74,7 @@
 
 ### Quality Gates
 
-- [ ] `/audit-loop` was used (test-first)
+- [ ] If the step is **Audit-loop: run** — `/audit-loop` was used (test-first); if **skip**, plain TDD + commit was used instead
 - [ ] Code review passed (audit-loop self-audit + Codex audit)
 - [ ] Acceptance criteria from the step are met
 - [ ] No regressions introduced
@@ -106,6 +106,8 @@
 ### Step 1.1: <!-- TODO: step title -->
 
 **Complexity:** <!-- S | M | L -->
+
+**Audit-loop:** <!-- run | skip — run for M/L or any correctness/security surface; skip for S/trivial (≤20 LOC, no new public fns, no auth/crypto/SQL/URL/permissions) → plain TDD + commit -->
 
 **Acceptance criteria:**
 

@@ -79,7 +79,7 @@ Then decide plan shape:
 
 - **Number of phases** — Group related steps. Typical: 2-5 phases for medium projects, up to 8 for large ones.
 - **Steps per phase** — Break into independently executable units (Step X.Y format). Each step = one `/audit-loop` cycle.
-- **Complexity per step** — Assign S/M/L. If a step is L, consider splitting.
+- **Complexity per step** — Assign S/M/L, then declare the **Audit-loop decision** (run/skip) inline. Skip trivial steps (≤20 LOC, no new public fns, no auth/crypto/SQL/URL/permissions) → plain TDD + commit; run everything else. Pre-deciding here removes the "audit-loop this step or not?" friction at execution time. If a step is L, consider splitting.
 - **Dependencies** — Map which steps depend on others.
 - **Optional sections** — Include Database Schema, API Endpoints, Code Examples, Table of Contents, and Risk Areas per the inclusion criteria in `references/plan-anatomy.md`.
 

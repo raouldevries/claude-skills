@@ -148,6 +148,8 @@ What's missing, broken, or needs changing.
 
 **Complexity:** S | M | L
 
+**Audit-loop:** run | skip
+
 **Acceptance criteria:**
 - [ ] Concrete, testable criterion
 - [ ] Another criterion
@@ -168,6 +170,10 @@ c. Third action
 - **S** — Single file, <50 LOC change, straightforward
 - **M** — 2-4 files, requires some design thought, ~50-200 LOC
 - **L** — 5+ files, architectural decisions, >200 LOC, consider splitting
+
+**Audit-loop decision (declare per step; don't defer to execution time):**
+- **skip** — trivial steps: ≤20 LOC, no new abstractions/public functions, no security-sensitive surface (auth, crypto, SQL safety, URL handling, permissions). Use plain TDD + commit.
+- **run** — everything else: any step adding a public function, touching a security surface, or carrying real correctness risk (usually M/L).
 
 **Rules:**
 - Steps must be independently executable (self-contained scope + clear acceptance criteria)
