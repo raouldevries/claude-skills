@@ -45,7 +45,7 @@ Run the init script. Use the absolute path so it works from any project director
 python3 ~/.claude/skills/make-plan/scripts/init-plan.py "<Plan Title>" --target "<goal>"
 ```
 
-Optional `--path` flag to specify the output directory. Defaults to: `.claude/plans/` → `~/.claude/plans/` (pass `--path` for another location, e.g. `memory-bank/plans/`).
+`--path` overrides the location. Otherwise the script resolves relative to the **git repo root** (so it behaves the same from any subdirectory): a per-project pin in `.claude/make-plan.json` (`{"plans_dir": "plans"}`) → an existing `plans/`, `.claude/plans/`, or `memory-bank/plans/` → default `.claude/plans/`. Pin a project once and every plan lands in one folder instead of scattering.
 
 ### Explore the codebase
 

@@ -13,6 +13,7 @@ Examples:
 
 import argparse
 import hashlib
+import json
 import re
 import sys
 import unicodedata
@@ -22,6 +23,13 @@ from typing import Optional
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE_PATH = SKILL_DIR / "assets" / "plan-template.md"
+
+# Conventions recognized when no pin and no --path are given, in priority
+# order. We HONOR whichever already exists in the repo rather than inventing
+# a new one — this is what stops plans from scattering across folders.
+KNOWN_CONVENTIONS = ("plans", ".claude/plans", "memory-bank/plans")
+DEFAULT_CONVENTION = ".claude/plans"
+CONFIG_REL = ".claude/make-plan.json"
 
 
 def to_kebab_case(title: str) -> str:
@@ -49,23 +57,69 @@ def to_kebab_case(title: str) -> str:
     return slug
 
 
+def find_repo_root(start: Path) -> Path:
+    """Walk up from `start` to the enclosing git repo root.
+
+    Resolution is anchored to the repo root, not the current working
+    directory, so running the script from a subdirectory of a monorepo
+    still writes the plan to the project's single plans folder instead of
+    spawning a nested copy (e.g. apps/api/memory-bank/plans/). Falls back
+    to `start` when no .git is found.
+    """
+    start = start.resolve()
+    for parent in (start, *start.parents):
+        if (parent / ".git").exists():
+            return parent
+    return start
+
+
+def pinned_dir(root: Path) -> Optional[Path]:
+    """Return the per-project pinned plans dir, or None.
+
+    A repo opts out of auto-detection by committing
+    `.claude/make-plan.json` with {"plans_dir": "<relative path>"}.
+    Malformed JSON, a missing/blank key, or a non-string value is treated
+    as "no pin" so a broken config never crashes scaffolding.
+    """
+    cfg = root / CONFIG_REL
+    if not cfg.is_file():
+        return None
+    try:
+        pinned = json.loads(cfg.read_text()).get("plans_dir")
+    except (json.JSONDecodeError, OSError, ValueError, AttributeError):
+        return None
+    if not isinstance(pinned, str) or not pinned.strip():
+        return None
+    return root / pinned.strip()
+
+
 def resolve_output_dir(provided_path: Optional[str]) -> Path:
-    """Resolve where to write the plan file."""
+    """Resolve where to write the plan file.
+
+    Precedence (first match wins), all anchored to the git repo root:
+      1. --path on the command line (explicit; absolute or cwd-relative)
+      2. a per-project pin in .claude/make-plan.json ("plans_dir")
+      3. an existing convention dir already in the repo (honor, don't invent)
+      4. a single default (.claude/plans/) at the repo root
+
+    Resolution is side-effect-free: the caller (main) creates the chosen
+    directory at write time, so merely resolving never spawns a folder.
+    """
     if provided_path:
         return Path(provided_path).resolve()
 
-    cwd = Path.cwd()
+    root = find_repo_root(Path.cwd())
 
-    # Prefer a project-local .claude/plans/ directory.
-    claude_plans = cwd / ".claude" / "plans"
-    if claude_plans.is_dir():
-        return claude_plans
+    pinned = pinned_dir(root)
+    if pinned is not None:
+        return pinned
 
-    # Fallback to ~/.claude/plans/
-    # (For other conventions such as memory-bank/plans/, pass --path.)
-    default_dir = Path.home() / ".claude" / "plans"
-    default_dir.mkdir(parents=True, exist_ok=True)
-    return default_dir
+    for convention in KNOWN_CONVENTIONS:
+        candidate = root / convention
+        if candidate.is_dir():
+            return candidate
+
+    return root / DEFAULT_CONVENTION
 
 
 def main():
