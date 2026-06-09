@@ -1,0 +1,7 @@
+# macOS
+.DS_Store
+
+# claude-mem drops <claude-mem-context> CLAUDE.md files into dirs it touches.
+# This is a public skills repo (SKILL.md only) — never commit a CLAUDE.md,
+# which would also leak session titles publicly.
+CLAUDE.md
